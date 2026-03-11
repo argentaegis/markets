@@ -1,0 +1,33 @@
+# Example trend_follow_risk_sized — portfolio-aware MA-cross + risk-based sizing (Plan 255).
+symbol: ESH1
+instrument_type: future
+start: "2026-01-02T14:30:00+00:00"
+end: "2026-01-02T16:00:00+00:00"
+timeframe_base: "1m"
+initial_cash: 500000.0
+
+data_provider:
+  underlying_path: src/loader/tests/fixtures/underlying_trailing
+  options_path: src/loader/tests/fixtures/options
+  timeframes_supported: ["1d", "1h", "1m"]
+  missing_data_policy: RETURN_PARTIAL
+  max_quote_age: null
+
+futures_contract_spec:
+  symbol: ESH1
+  tick_size: 0.25
+  point_value: 50.0
+  session:
+    name: RTH
+    start_time: "09:30:00"
+    end_time: "16:00:00"
+    timezone: America/New_York
+
+strategy:
+  name: trend_follow_risk_sized
+  params:
+    ma_period: 1  # 2 bars needed; fixture has 3 1m bars
+    trailing_stop_ticks: 4
+    direction: LONG
+    risk_pct: 0.01
+    max_qty: 5

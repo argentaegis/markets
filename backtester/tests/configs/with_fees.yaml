@@ -1,0 +1,22 @@
+# Test config — fee_config for fee assertion tests
+symbol: SPY
+start: "2026-01-02T14:31:00+00:00"
+end: "2026-01-02T14:35:00+00:00"
+timeframe_base: 1m
+initial_cash: 100000.0
+
+strategy:
+  name: covered_call
+  contract_id: SPY|2026-01-17|C|480|100
+  exit_step: 3
+
+data_provider:
+  underlying_path: src/loader/tests/fixtures/underlying
+  options_path: src/loader/tests/fixtures/options
+  timeframes_supported: ["1d", "1h", "1m"]
+  missing_data_policy: RETURN_PARTIAL
+  max_quote_age: null
+
+fee_config:
+  per_contract: 0.65
+  per_order: 0.50

@@ -1,0 +1,26 @@
+# trend_follow_risk_sized — 1 month (Jan 2026), uses catalog for ES data.
+symbol: ES
+instrument_type: future
+start: "2026-01-02T14:30:00Z"
+end: "2026-01-31T21:00:00Z"
+timeframe_base: "1m"
+initial_cash: 500000.0
+
+futures_contract_spec:
+  symbol: ES
+  tick_size: 0.25
+  point_value: 50.0
+  session:
+    name: RTH
+    start_time: "09:30:00"
+    end_time: "16:00:00"
+    timezone: America/New_York
+
+strategy:
+  name: trend_follow_risk_sized
+  params:
+    ma_period: 20
+    trailing_stop_ticks: 10
+    direction: LONG
+    risk_pct: 0.01
+    max_qty: 5

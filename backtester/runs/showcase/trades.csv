@@ -1,0 +1,2 @@
+instrument_id,side,qty,entry_ts,entry_price,exit_ts,exit_price,realized_pnl,fees,multiplier,is_open
+ESH1,LONG,1,2026-01-02T14:36:00+00:00,5410.25,2026-01-02T14:37:00+00:00,5412.0,87.5,0.0,50.0,true

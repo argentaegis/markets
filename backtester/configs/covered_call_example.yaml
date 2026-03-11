@@ -1,0 +1,18 @@
+# Example CoveredCall — buy on step 1, exit on step 3 using fixture data.
+symbol: SPY
+start: "2026-01-02T14:31:00+00:00"
+end: "2026-01-02T14:35:00+00:00"
+timeframe_base: "1m"
+initial_cash: 100000.0
+
+strategy:
+  name: covered_call
+  contract_id: SPY|2026-01-17|C|480|100
+  exit_step: 3
+
+data_provider:
+  underlying_path: src/loader/tests/fixtures/underlying
+  options_path: src/loader/tests/fixtures/options
+  timeframes_supported: ["1d", "1h", "1m"]
+  missing_data_policy: RETURN_PARTIAL
+  max_quote_age: null

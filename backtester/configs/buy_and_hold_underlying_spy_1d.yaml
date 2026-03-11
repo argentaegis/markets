@@ -1,0 +1,12 @@
+# Buy-and-hold SPY for 1 day (Jan 2, 2024).
+symbol: SPY
+instrument_type: equity
+start: "2024-01-02T14:30:00+00:00"
+end: "2024-01-02T21:00:00+00:00"
+timeframe_base: 1m
+initial_cash: 100000.0
+
+strategy:
+  name: buy_and_hold_underlying
+  symbol: SPY
+  qty: 10

@@ -1,0 +1,7 @@
+massive:
+  SPX: I:SPX
+  NDX: I:NDX
+  SPY: SPY
+stooq:
+  SPX: "^SPX"
+  SPY: SPY.US

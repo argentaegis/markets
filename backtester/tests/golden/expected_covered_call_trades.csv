@@ -1,0 +1,2 @@
+instrument_id,side,qty,entry_price,exit_price,realized_pnl,fees
+SPY|2026-01-17|C|480|100,LONG,1,5.22,5.137125,-8.287499999999959,0.0

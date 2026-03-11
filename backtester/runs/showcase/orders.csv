@@ -1,0 +1,3 @@
+id,ts,instrument_id,side,qty,order_type,limit_price,tif
+strat-ESH1-LONG-2026-01-02T14:36:00+00:00,2026-01-02T14:36:00+00:00,ESH1,BUY,1,stop,5410.25,GTC
+strat-ESH1-LONG-2026-01-02T14:37:00+00:00,2026-01-02T14:37:00+00:00,ESH1,BUY,1,stop,5410.25,GTC

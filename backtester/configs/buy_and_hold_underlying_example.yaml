@@ -1,0 +1,19 @@
+# Example BuyAndHoldUnderlying — buy SPY equity on the first bar and hold to run end.
+symbol: SPY
+instrument_type: equity
+start: "2026-01-02T21:00:00+00:00"
+end: "2026-01-08T21:00:00+00:00"
+timeframe_base: "1d"
+initial_cash: 100000.0
+
+strategy:
+  name: buy_and_hold_underlying
+  symbol: SPY
+  qty: 10
+
+data_provider:
+  underlying_path: src/loader/tests/fixtures/underlying
+  options_path: src/loader/tests/fixtures/options
+  timeframes_supported: ["1d", "1h", "1m"]
+  missing_data_policy: RETURN_PARTIAL
+  max_quote_age: null

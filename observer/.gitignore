@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+
+# Node
+node_modules/
+frontend/dist/
+
+# Environment
+.env
+*.db
+schwab_token.json
+config.yaml
+
+# IDE
+.idea/
+.vscode/
+.cursor/
+
+# Legacy planning docs now live in .cursor/plans/
+planning/
+
+# OS
+.DS_Store
+Thumbs.db

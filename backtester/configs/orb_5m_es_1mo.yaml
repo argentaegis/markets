@@ -1,0 +1,22 @@
+# ORB strategy on ES — 1 month (Jan 2026)
+symbol: ES
+start: "2026-01-02T14:30:00Z"
+end: "2026-01-31T21:00:00Z"
+timeframe_base: "1m"
+instrument_type: future
+futures_contract_spec:
+  symbol: ES
+  tick_size: 0.25
+  point_value: 50.0
+  session:
+    name: RTH
+    start_time: "09:30:00"
+    end_time: "16:00:00"
+    timezone: America/New_York
+
+strategy:
+  name: orb_5m
+  params:
+    qty: 1
+    min_range_ticks: 4
+    max_range_ticks: 40

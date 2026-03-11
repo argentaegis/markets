@@ -1,0 +1,40 @@
+[project]
+name = "backtester"
+version = "0.1.0"
+description = "Modular options backtester"
+requires-python = ">=3.10"
+dependencies = [
+    "exchange-calendars>=4.0",
+    "pandas>=2.0",
+    "pytest>=7.0",
+    "pyyaml>=6.0",
+    "pyarrow>=14.0",
+    "python-dotenv>=1.0",
+    "massive>=1.12",
+    "zstandard>=0.21",
+    "strategizer @ file:../strategizer",
+    "portfolio @ file:../portfolio",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["src/domain/tests", "src/loader/tests", "src/marketdata/tests", "src/clock/tests", "src/portfolio/tests", "src/broker/tests", "src/engine/tests", "src/reporter/tests", "src/strategies/tests", "src/utils/tests", "tests/unit", "tests/integration"]
+pythonpath = ["."]
+markers = [
+    "network: tests that may call external APIs (skip with -m 'not network')",
+    "integration: project-level integration tests",
+]

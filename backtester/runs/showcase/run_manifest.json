@@ -1,0 +1,64 @@
+{
+  "run_id": "202603111917_ESH1_1m_20260102_20260102",
+  "config": {
+    "symbol": "ESH1",
+    "start": "2026-01-02T14:31:00+00:00",
+    "end": "2026-01-02T14:37:00+00:00",
+    "timeframe_base": "1m",
+    "data_provider_config": {
+      "underlying_path": "src/loader/tests/fixtures/underlying",
+      "options_path": "src/loader/tests/fixtures/options",
+      "timeframes_supported": [
+        "1d",
+        "1h",
+        "1m"
+      ],
+      "storage_backend": "parquet",
+      "missing_data_policy": "RETURN_PARTIAL",
+      "max_quote_age": null,
+      "default_multiplier": 100.0
+    },
+    "seed": null,
+    "initial_cash": 500000.0,
+    "fee_config": null,
+    "fill_config": null,
+    "instrument_type": "future",
+    "futures_contract_spec": {
+      "symbol": "ESH1",
+      "tick_size": 0.25,
+      "point_value": 50.0,
+      "session": {
+        "name": "RTH",
+        "start_time": "09:30:00",
+        "end_time": "16:00:00",
+        "timezone": "America/New_York"
+      }
+    },
+    "strategy_name": "orb_5m"
+  },
+  "provider_diagnostics": {
+    "config": {
+      "underlying_path": "src/loader/tests/fixtures/underlying",
+      "options_path": "src/loader/tests/fixtures/options",
+      "timeframes_supported": [
+        "1d",
+        "1h",
+        "1m"
+      ],
+      "storage_backend": "parquet",
+      "missing_data_policy": "RETURN_PARTIAL",
+      "max_quote_age": null,
+      "default_multiplier": 100.0
+    },
+    "diagnostics": {
+      "data_ranges": {
+        "ESH1|1m": {
+          "min_ts": "2026-01-02T14:31:00+00:00",
+          "max_ts": "2026-01-02T14:36:00+00:00"
+        }
+      },
+      "crossed_quotes_sanitized": 0
+    }
+  },
+  "git_hash": "ddb41f7"
+}

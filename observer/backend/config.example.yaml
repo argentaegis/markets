@@ -1,0 +1,27 @@
+# Observer configuration
+# Copy this file to config.yaml and adjust to your needs.
+# config.yaml is gitignored — treat it like .env.
+
+watchlists:
+  futures_main:
+    - ESH26
+    - NQH26
+
+strategies:
+  orb_5m:
+    enabled: true
+    source: strategizer  # Use ORB from strategizer package (050/060)
+    watchlist: futures_main
+    params:
+      min_range_ticks: 4
+      max_range_ticks: 40
+
+  dummy:
+    enabled: false
+
+engine:
+  eval_timeframe: "5m"
+  max_candidates_per_strategy: 10
+
+portfolio:
+  source: mock  # MVP: empty portfolio; replace when portfolio-aware

@@ -1,0 +1,18 @@
+{
+  "initial_cash": 500000.0,
+  "final_equity": 500087.5,
+  "total_return_pct": 0.000175,
+  "realized_pnl": 0,
+  "unrealized_pnl": 87.5,
+  "max_drawdown": 0.0,
+  "max_drawdown_pct": 0.0,
+  "num_trades": 0,
+  "num_winning": 0,
+  "num_losing": 0,
+  "win_rate": 0.0,
+  "total_fees": 0.0,
+  "start": "2026-01-02T14:31:00+00:00",
+  "end": "2026-01-02T14:37:00+00:00",
+  "num_steps": 7,
+  "elapsed_seconds": 0.14
+}
