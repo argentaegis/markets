@@ -40,6 +40,22 @@ That means startup order depends on what you are running:
 
 ## Common Commands
 
+The repo root now includes a `Makefile` so you can run common tasks without changing directories first.
+
+```bash
+make venv
+make install
+make help
+make build
+make test
+make check
+make backtester-run BACKTESTER_CONFIG=configs/orb_5m_example.yaml
+make observer-backend
+make observer-frontend
+```
+
+The root `Makefile` uses a shared root `.venv` for all Python projects.
+
 ### Backtester
 
 From `backtester/`:
