@@ -1,0 +1,96 @@
+{
+  "run_id": "202603112204_SPY_1d_20190301_20260310",
+  "config": {
+    "symbol": "SPY",
+    "start": "2019-03-01T00:00:00+00:00",
+    "end": "2026-03-10T00:00:00+00:00",
+    "timeframe_base": "1d",
+    "data_provider_config": {
+      "underlying_path": "data/exports/spy",
+      "options_path": "data/exports/options/spy",
+      "extra_underlying_paths": {
+        "QQQ": "data/exports/qqq",
+        "IWM": "data/exports/iwm",
+        "TLT": "data/exports/tlt",
+        "GLD": "data/exports/gld",
+        "USO": "data/exports/uso"
+      },
+      "timeframes_supported": [
+        "1d",
+        "1h",
+        "1m"
+      ],
+      "storage_backend": "parquet",
+      "missing_data_policy": "RETURN_PARTIAL",
+      "max_quote_age": null,
+      "default_multiplier": 100.0
+    },
+    "seed": null,
+    "initial_cash": 100000.0,
+    "fee_config": null,
+    "fill_config": null,
+    "instrument_type": "equity",
+    "futures_contract_spec": null,
+    "strategy_name": "tactical_asset_allocation",
+    "symbols": [
+      "SPY",
+      "QQQ",
+      "IWM",
+      "TLT",
+      "GLD",
+      "USO"
+    ]
+  },
+  "provider_diagnostics": {
+    "config": {
+      "underlying_path": "data/exports/spy",
+      "options_path": "data/exports/options/spy",
+      "extra_underlying_paths": {
+        "QQQ": "data/exports/qqq",
+        "IWM": "data/exports/iwm",
+        "TLT": "data/exports/tlt",
+        "GLD": "data/exports/gld",
+        "USO": "data/exports/uso"
+      },
+      "timeframes_supported": [
+        "1d",
+        "1h",
+        "1m"
+      ],
+      "storage_backend": "parquet",
+      "missing_data_policy": "RETURN_PARTIAL",
+      "max_quote_age": null,
+      "default_multiplier": 100.0
+    },
+    "diagnostics": {
+      "data_ranges": {
+        "SPY|1d": {
+          "min_ts": "2018-05-01T00:00:00+00:00",
+          "max_ts": "2026-03-10T00:00:00+00:00"
+        },
+        "QQQ|1d": {
+          "min_ts": "2018-05-01T00:00:00+00:00",
+          "max_ts": "2026-03-10T00:00:00+00:00"
+        },
+        "IWM|1d": {
+          "min_ts": "2018-05-01T00:00:00+00:00",
+          "max_ts": "2026-03-10T00:00:00+00:00"
+        },
+        "TLT|1d": {
+          "min_ts": "2018-05-01T00:00:00+00:00",
+          "max_ts": "2026-03-10T00:00:00+00:00"
+        },
+        "GLD|1d": {
+          "min_ts": "2018-05-01T00:00:00+00:00",
+          "max_ts": "2026-03-10T00:00:00+00:00"
+        },
+        "USO|1d": {
+          "min_ts": "2018-05-01T00:00:00+00:00",
+          "max_ts": "2026-03-10T00:00:00+00:00"
+        }
+      },
+      "crossed_quotes_sanitized": 0
+    }
+  },
+  "git_hash": "b51c639"
+}

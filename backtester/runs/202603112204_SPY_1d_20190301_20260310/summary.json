@@ -1,0 +1,18 @@
+{
+  "initial_cash": 100000.0,
+  "final_equity": 188660.19547499996,
+  "total_return_pct": 0.8866019547499996,
+  "realized_pnl": 63573.73607499999,
+  "unrealized_pnl": 27905.573097449495,
+  "max_drawdown": 38995.66527499998,
+  "max_drawdown_pct": 0.24280749030632642,
+  "num_trades": 199,
+  "num_winning": 137,
+  "num_losing": 62,
+  "win_rate": 0.6884422110552764,
+  "total_fees": 0.0,
+  "start": "2019-03-01T00:00:00+00:00",
+  "end": "2026-03-10T00:00:00+00:00",
+  "num_steps": 1765,
+  "elapsed_seconds": 36.3
+}
