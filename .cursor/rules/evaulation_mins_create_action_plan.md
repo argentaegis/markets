@@ -13,4 +13,4 @@ Do not write code.
 Do not expand into a full roadmap.
 Optimize for the smallest meaningful improvement in project credibility.
 
-This work package should be the next item in the _plan.md list.  (ie, if the last one was 260_..._plan.md this one should be 261_ with an approprate name following)
+This work package should be the next item in the _plan.md list.  (ie, if the last one was 260_<name/>.plan.md this one should be 261_<name/>.plan.md with an approprate name following)

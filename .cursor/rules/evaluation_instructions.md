@@ -217,4 +217,4 @@ At the end, answer this question explicitly:
 
 **If the owner only does one thing next, what should it be, and why?**
 
-Write the evaulation to a file planning/evaluation_output_YYYYMMDD.md
+Write the evaulation to a file .cursor/plans/evaluation_output_YYYYMMDDHHMM.md

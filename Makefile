@@ -7,7 +7,6 @@ PYTHON := $(VENV_DIR)/bin/python
 PIP := $(PYTHON) -m pip
 NPM ?= npm
 
-BACKTESTER_CONFIG ?= configs/orb_5m_example.yaml
 BACKTESTER_ARGS ?=
 BACKEND_PORT ?= 8000
 FRONTEND_PORT ?= 5173
@@ -82,7 +81,10 @@ install-observer: venv ## Install observer backend dependencies
 observer-frontend-install: ## Install observer frontend dependencies
 	cd observer/frontend && $(NPM) install
 
-backtester-run: venv ## Run the backtester example (override BACKTESTER_CONFIG and BACKTESTER_ARGS)
+backtester-run: venv ## Run a backtest (requires BACKTESTER_CONFIG=path/to/config.yaml)
+ifndef BACKTESTER_CONFIG
+	$(error BACKTESTER_CONFIG is required, e.g. make backtester-run BACKTESTER_CONFIG=configs/orb_5m_example.yaml)
+endif
 	cd backtester && $(PYTHON) -m src.runner "$(BACKTESTER_CONFIG)" $(BACKTESTER_ARGS)
 
 observer-backend: venv ## Start the observer backend API server
