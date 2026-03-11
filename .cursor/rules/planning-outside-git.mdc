@@ -1,0 +1,11 @@
+description: Planning documents are working artifacts stored in .cursor/plans
+alwaysApply: true
+---
+
+# Planning Documents Location
+
+Planning documents live in `.cursor/plans/`. They are working artifacts for the development process and should stay separate from the product code.
+
+- Planning docs go in `.cursor/plans/` with naming convention `NNN_description.md`
+- They contain implementation phases, acceptance criteria, and design decisions
+- They reference the master plan (`000_observer_mvp_initial_plan.md`)

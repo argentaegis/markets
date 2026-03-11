@@ -1,0 +1,16 @@
+---
+description: Test-first development — write failing tests before implementation
+alwaysApply: true
+---
+
+# Test-First (Red-Green-Refactor)
+
+Every implementation phase follows this cycle:
+
+| Stage | What to do |
+|-------|-----------|
+| **Red** | Write tests that specify the expected behavior. Run them — they must fail. |
+| **Green** | Write the minimal code to make tests pass. Run them — they must pass. |
+| **Refactor** | Clean up while keeping tests green. |
+
+Never write implementation code without a failing test first. Tests live in `backend/tests/unit/` mirroring the `src/` structure.

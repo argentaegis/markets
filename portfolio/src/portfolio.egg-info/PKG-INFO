@@ -1,0 +1,7 @@
+Metadata-Version: 2.4
+Name: portfolio
+Version: 0.1.0
+Summary: Shared portfolio state and accounting for markets ecosystem
+Requires-Python: >=3.10
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"

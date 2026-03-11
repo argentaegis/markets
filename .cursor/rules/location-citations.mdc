@@ -1,0 +1,20 @@
+---
+description: Include file/line citations when answering "where is X in the code" questions
+alwaysApply: true
+---
+
+# Location Citations
+
+When answering questions about where something is in the codebase, include file/line references using the citation format:
+
+```startLine:endLine:filepath
+```
+
+Example: "CSV loading for underlying bars is in `file_loader.py` at:
+
+```57:74:src/loader/storage/file_loader.py
+    if path.suffix.lower() == ".parquet":
+        ...
+    with open(path) as f:
+        r = csv.DictReader(f)
+```

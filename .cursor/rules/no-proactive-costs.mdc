@@ -1,0 +1,14 @@
+---
+description: Never make decisions that incur costs without explicit approval
+alwaysApply: true
+---
+
+# No Proactive Cost Decisions
+
+Never select options that incur financial cost (cloud billing, paid APIs, paid tiers) without explicitly asking the user first. This includes:
+
+- Cloud service billing modes (on-demand, reserved, spot)
+- Paid API tiers or usage-based pricing
+- Resource provisioning that incurs charges
+
+Always present the cost implications and wait for explicit approval before proceeding.

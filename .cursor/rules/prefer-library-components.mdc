@@ -1,0 +1,23 @@
+---
+description: Prefer existing components from adopted UI libraries over custom implementations
+alwaysApply: true
+---
+
+# Prefer Library Components
+
+When we've adopted a UI library (currently MUI / Material UI), always check its component catalog before building custom elements. Use existing library components and their built-in props/variants rather than reimplementing equivalent functionality with raw HTML or styled primitives.
+
+Examples of MUI components to prefer:
+- `LinearProgress` / `CircularProgress` over custom progress bars
+- `Alert` / `Snackbar` over custom notification elements
+- `Dialog` over custom modals
+- `Skeleton` over custom loading placeholders
+- `Chip` / `Badge` over custom tag/indicator elements
+
+```tsx
+// ❌ BAD — custom progress bar when MUI has one
+<Box sx={{ height: 4, bgcolor: 'green', width: `${pct}%`, transition: 'width 1s' }} />
+
+// ✅ GOOD — use MUI LinearProgress
+<LinearProgress variant="determinate" value={pct} sx={{ height: 4 }} />
+```
