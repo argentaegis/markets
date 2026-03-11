@@ -28,10 +28,15 @@ def extract_marks(snapshot: MarketSnapshot, symbol: str) -> dict[str, float]:
     """Extract marks from MarketSnapshot.
 
     Reasoning: Options use Quote.mid or (bid+ask)/2; underlying uses bar.close.
+    For multi-symbol equity (underlying_bars_by_symbol), emits mark per symbol (263).
     Skips missing/stale quotes. Handles None bars/quotes gracefully.
     """
     result: dict[str, float] = {}
-    if snapshot.underlying_bar is not None:
+    if snapshot.underlying_bars_by_symbol is not None:
+        for sym, bar in snapshot.underlying_bars_by_symbol.items():
+            if bar is not None:
+                result[sym] = bar.close
+    elif snapshot.underlying_bar is not None:
         result[symbol] = snapshot.underlying_bar.close
     if snapshot.option_quotes is not None:
         for contract_id, q in snapshot.option_quotes.quotes.items():

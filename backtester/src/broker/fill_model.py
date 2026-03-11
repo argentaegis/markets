@@ -66,6 +66,12 @@ def fill_order(
             fill_price = None
 
     # Underlying: use bar close as mid with synthetic spread (market/limit)
+    # Multi-symbol equity: use underlying_bars_by_symbol when present (263)
+    elif snapshot.underlying_bars_by_symbol is not None:
+        bar = snapshot.underlying_bars_by_symbol.get(instrument_id)
+        if bar is not None:
+            mid = bar.close
+            fill_price = _apply_synthetic_spread(mid, order.side, config.synthetic_spread_bps)
     elif instrument_id == symbol and snapshot.underlying_bar is not None:
         mid = snapshot.underlying_bar.close
         fill_price = _apply_synthetic_spread(mid, order.side, config.synthetic_spread_bps)

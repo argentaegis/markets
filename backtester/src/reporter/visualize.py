@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import csv
 import json
+from collections import defaultdict
 from pathlib import Path
 
 
@@ -34,6 +35,15 @@ def _read_trades(run_dir: Path) -> list[dict]:
 def _read_fills(run_dir: Path) -> list[dict]:
     """Read fills.csv into list of dicts."""
     path = run_dir / "fills.csv"
+    if not path.exists():
+        return []
+    with open(path) as f:
+        return list(csv.DictReader(f))
+
+
+def _read_orders(run_dir: Path) -> list[dict]:
+    """Read orders.csv into list of dicts."""
+    path = run_dir / "orders.csv"
     if not path.exists():
         return []
     with open(path) as f:
@@ -86,7 +96,9 @@ def _render_html(
     *,
     strategy_name: str = "",
     symbol: str = "",
+    symbols: list[str] | None = None,
     instrument_type: str = "",
+    order_by_id: dict[str, dict] | None = None,
 ) -> str:
     """Render the full HTML report string."""
     eq_ts = json.dumps([r["ts"] for r in equity])
@@ -96,7 +108,18 @@ def _render_html(
 
     initial_cash = summary.get("initial_cash", 0)
     fill_ts = json.dumps([r["ts"] for r in fills])
-    fill_prices_text = json.dumps([f"Fill: ${float(r['fill_price']):.2f} x {r['fill_qty']}" for r in fills])
+    order_map = order_by_id or {}
+    fill_labels = []
+    for r in fills:
+        oid = r.get("order_id", "")
+        info = order_map.get(oid, {})
+        inst = info.get("instrument_id", "?")
+        side = info.get("side", "")
+        price = float(r.get("fill_price", 0))
+        qty = r.get("fill_qty", 0)
+        lbl = f"{inst} {side}: ${price:.2f} x {qty}" if inst and side else f"Fill: ${price:.2f} x {qty}"
+        fill_labels.append(lbl)
+    fill_prices_text = json.dumps(fill_labels)
 
     # Map fill timestamps to equity values for marker placement
     eq_by_ts = {r["ts"]: float(r["equity"]) for r in equity}
@@ -140,9 +163,14 @@ def _render_html(
     </script>
 """
 
-    # Report title: strategy_name — symbol (instrument_type) or "Backtest Report" if no strategy
+    # Report title: strategy_name — symbol/symbols (instrument_type) or "Backtest Report" if no strategy
+    sym_list = symbols if symbols else []
     if strategy_name:
-        mid = f" — {symbol}" if symbol else ""
+        if sym_list:
+            sym_str = ", ".join(sym_list) if len(sym_list) <= 4 else f"{', '.join(sym_list[:3])}, ... ({len(sym_list)} symbols)"
+            mid = f" — {sym_str}"
+        else:
+            mid = f" — {symbol}" if symbol else ""
         suffix = f" ({_format_asset_type(instrument_type)})" if instrument_type else ""
         report_title = f"{strategy_name}{mid}{suffix}"
     else:
@@ -156,15 +184,41 @@ def _render_html(
         return f"${val:,.2f}"
 
     metadata_rows = ""
-    if strategy_name or symbol or instrument_type:
+    if strategy_name or symbol or sym_list or instrument_type:
+        sym_display = ", ".join(sym_list) if sym_list else (symbol or "—")
+        sym_label = "Symbols" if len(sym_list) > 1 else "Symbol"
         metadata_rows = """
         <tr><td>Strategy</td><td>""" + (strategy_name or "—") + """</td></tr>
-        <tr><td>Symbol</td><td>""" + (symbol or "—") + """</td></tr>
+        <tr><td>""" + sym_label + """</td><td>""" + sym_display + """</td></tr>
         <tr><td>Asset Type</td><td>""" + (_format_asset_type(instrument_type) or "—") + """</td></tr>
 """
 
     num_open = sum(1 for r in trades if str(r.get("is_open", "")).lower() == "true") if trades else 0
     trades_suffix = f" / {num_open} open" if num_open else ""
+
+    # Per-symbol P&L summary (when multiple instruments)
+    by_symbol_html = ""
+    if trades:
+        by_sym: dict[str, tuple[float, int, int]] = defaultdict(lambda: (0.0, 0, 0))  # pnl, wins, total
+        for r in trades:
+            inst = r.get("instrument_id", "?")
+            pnl = float(r.get("realized_pnl", 0))
+            prev = by_sym[inst]
+            wins = prev[1] + (1 if pnl > 0 else 0)
+            total = prev[2] + 1
+            by_sym[inst] = (prev[0] + pnl, wins, total)
+        if len(by_sym) > 1:
+            rows = []
+            for inst in sorted(by_sym.keys()):
+                pnl, wins, total = by_sym[inst]
+                rows.append(f"<tr><td>{inst}</td><td>{_fmt_dollar(pnl)}</td><td>{total} (W: {wins})</td></tr>")
+            by_symbol_html = """
+  <h2>P&L by Symbol</h2>
+  <table>
+    <tr><th>Symbol</th><th>Realized P&L</th><th>Trades</th></tr>
+    """ + "\n    ".join(rows) + """
+  </table>
+"""
 
     summary_rows = metadata_rows + f"""
         <tr><td>Initial Cash</td><td>{_fmt_dollar(summary.get('initial_cash', 0))}</td></tr>
@@ -192,6 +246,7 @@ def _render_html(
     h1 {{ font-size: 1.5rem; margin-bottom: 16px; color: #fff; }}
     h2 {{ font-size: 1.1rem; margin: 24px 0 8px 0; color: #ccc; }}
     table {{ border-collapse: collapse; width: 100%; max-width: 500px; margin-bottom: 16px; }}
+    th {{ padding: 6px 12px; border-bottom: 1px solid #555; color: #aaa; text-align: left; font-weight: 600; }}
     td {{ padding: 6px 12px; border-bottom: 1px solid #333; }}
     td:first-child {{ color: #aaa; }}
     td:last-child {{ text-align: right; font-weight: 600; }}
@@ -204,6 +259,7 @@ def _render_html(
   <table>
     {summary_rows}
   </table>
+  {by_symbol_html}
 
   <h2>Equity Curve</h2>
   <div id="equity-curve"></div>
@@ -283,17 +339,28 @@ def generate_html_report(run_dir: Path) -> Path:
     equity = _read_equity_curve(run_dir)
     trades = _read_trades(run_dir)
     fills = _read_fills(run_dir)
+    orders = _read_orders(run_dir)
     summary = _read_summary(run_dir)
     drawdown = _compute_drawdown(equity)
     manifest = _read_run_manifest(run_dir)
     config = manifest.get("config") or {}
     strategy_name = str(config.get("strategy_name", ""))
     symbol = str(config.get("symbol", ""))
+    symbols = config.get("symbols")
+    if symbols and not isinstance(symbols, list):
+        symbols = []
+    symbols = list(symbols) if symbols else []
     instrument_type = str(config.get("instrument_type", ""))
+
+    order_by_id = {o["id"]: {"instrument_id": o.get("instrument_id", ""), "side": o.get("side", "")} for o in orders}
 
     html = _render_html(
         summary, equity, drawdown, trades, fills,
-        strategy_name=strategy_name, symbol=symbol, instrument_type=instrument_type,
+        strategy_name=strategy_name,
+        symbol=symbol,
+        symbols=symbols,
+        instrument_type=instrument_type,
+        order_by_id=order_by_id,
     )
     out = run_dir / "report.html"
     out.write_text(html)

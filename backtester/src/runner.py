@@ -33,6 +33,7 @@ STRATEGY_NAMES = [
     "covered_call",
     "trend_entry_trailing_stop",
     "trend_follow_risk_sized",
+    "tactical_asset_allocation",
 ]
 
 
@@ -137,23 +138,34 @@ def _build_backtest_config(raw: dict, catalog: dict | None = None) -> BacktestCo
 
     Data paths resolved from catalog by symbol. The data_provider block in configs
     is an escape hatch for tests that need to point at fixture data.
+    For multi-symbol (symbols: [...]), resolves each symbol from catalog into extra_underlying_paths.
     """
     symbol = raw.get("symbol", "SPY")
+    symbols = raw.get("symbols") or []
+    if not isinstance(symbols, list):
+        symbols = []
     dp_raw = raw.get("data_provider", {})
     defaults = (catalog or {}).get("defaults", {})
 
     if dp_raw.get("underlying_path"):
         underlying_path = dp_raw["underlying_path"]
         options_path = dp_raw.get("options_path", "")
+        extra_underlying_paths = {}
     else:
         if catalog is None:
             catalog = _load_catalog()
         underlying_path, options_path = _resolve_from_catalog(symbol, catalog)
         options_path = options_path or ""
+        extra_underlying_paths = {}
+        for sym in symbols:
+            if sym != symbol:
+                up, _ = _resolve_from_catalog(sym, catalog)
+                extra_underlying_paths[sym] = Path(up)
 
     dp_config = DataProviderConfig(
         underlying_path=underlying_path,
         options_path=options_path,
+        extra_underlying_paths=extra_underlying_paths,
         timeframes_supported=dp_raw.get(
             "timeframes_supported",
             defaults.get("timeframes_supported", ["1d", "1h", "1m"]),
@@ -195,6 +207,7 @@ def _build_backtest_config(raw: dict, catalog: dict | None = None) -> BacktestCo
         instrument_type=instrument_type,
         futures_contract_spec=fc_spec,
         strategy_name=strategy_name,
+        symbols=symbols,
     )
 
 

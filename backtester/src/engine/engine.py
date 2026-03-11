@@ -74,9 +74,23 @@ def _build_step_snapshot(
 
     Skips option chain/quote fetch for non-option instrument types (equity, future).
     For futures (instrument_type=future), fetches bar history and populates futures_bars.
+    For multi-symbol equity (config.symbols non-empty), fetches current bar and history per symbol (263).
     Uses strategy lookback to narrow fetch range (Plan 153).
     """
+    universe = (config.symbols or []) if config else []
+    is_multi_equity = (
+        config is not None
+        and config.instrument_type == "equity"
+        and len(universe) > 0
+    )
+
     futures_bars: list | None = None
+    bars_by_symbol: dict[str, object] | None = None
+    history_by_symbol: dict[str, list] | None = None
+    bar = None
+    chain: list[str] = []
+    quotes = None
+
     if config and config.instrument_type == "future":
         if strategy is not None:
             lookback = _get_lookback(strategy)
@@ -87,16 +101,32 @@ def _build_step_snapshot(
         history = provider.get_underlying_bars(symbol, timeframe, effective_start, ts)
         futures_bars = list(history.rows)
         bar = futures_bars[-1] if futures_bars else None
+    elif is_multi_equity:
+        lookback = _get_lookback(strategy) if strategy else 210
+        delta = _lookback_to_timedelta(timeframe, lookback)
+        effective_start = max(config.start, ts - delta)
+        bars_by_symbol = {}
+        history_by_symbol = {}
+        for sym in universe:
+            cur = provider.get_underlying_bars(sym, timeframe, ts, ts)
+            hist = provider.get_underlying_bars(sym, timeframe, effective_start, ts)
+            bars_by_symbol[sym] = cur.rows[0] if cur.rows else None
+            history_by_symbol[sym] = list(hist.rows)
+        bar = bars_by_symbol.get(config.symbol) or (bars_by_symbol.get(universe[0]) if universe else None)
     else:
         bars = provider.get_underlying_bars(symbol, timeframe, ts, ts)
         bar = bars.rows[0] if bars.rows else None
 
-    chain: list[str] = []
-    quotes = None
     if _needs_options(config):
         chain = provider.get_option_chain(symbol, ts)
         quotes = provider.get_option_quotes(chain, ts) if chain else None
-    return build_market_snapshot(ts, bar, quotes, futures_bars=futures_bars)
+
+    return build_market_snapshot(
+        ts, bar, quotes,
+        futures_bars=futures_bars,
+        underlying_bars_by_symbol=bars_by_symbol,
+        underlying_history_by_symbol=history_by_symbol,
+    )
 
 
 def _instrument_params(instrument_id: str, symbol: str, config: BacktestConfig) -> tuple[float, str]:
@@ -104,9 +134,14 @@ def _instrument_params(instrument_id: str, symbol: str, config: BacktestConfig) 
 
     Reasoning: equity=1.0; option=100.0; future=point_value from config.
     For futures, instrument_id == symbol (e.g. ESH26).
+    For multi-symbol equity, any instrument in config.symbols is equity (263).
     """
     if config.instrument_type == "future" and config.futures_contract_spec is not None:
         return config.futures_contract_spec.point_value, "future"
+    if config.instrument_type == "equity":
+        universe = config.symbols or [config.symbol]
+        if instrument_id in universe:
+            return 1.0, "equity"
     if instrument_id == symbol:
         return 1.0, "equity"
     return 100.0, "option"
@@ -128,6 +163,8 @@ def _process_orders(
     if config.instrument_type == "future" and config.futures_contract_spec is not None:
         mult = config.futures_contract_spec.point_value
         fc_spec = config.futures_contract_spec
+    elif config.instrument_type == "equity":
+        mult = 1.0
     fills = submit_orders(
         orders,
         snapshot,

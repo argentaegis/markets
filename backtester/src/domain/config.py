@@ -7,7 +7,7 @@ initial_cash, fee_config, fill_config drive the engine loop (A4: configuration-f
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, time, timezone
 from typing import TYPE_CHECKING
 
@@ -89,6 +89,7 @@ class BacktestConfig:
     instrument_type: str = "option"  # "equity" | "option" | "future"
     futures_contract_spec: FuturesContractSpec | None = None
     strategy_name: str = ""  # For report title and metadata (e.g. buy_and_hold_underlying)
+    symbols: list[str] = field(default_factory=list)  # Multi-symbol universe; empty = single-symbol (use symbol)
 
     def to_dict(self) -> dict:
         """Serialize for JSON. Paths and datetimes become strings.
@@ -126,6 +127,7 @@ class BacktestConfig:
             "instrument_type": self.instrument_type,
             "futures_contract_spec": fc_dict,
             "strategy_name": self.strategy_name,
+            "symbols": list(self.symbols),
         }
 
     @classmethod
@@ -136,6 +138,7 @@ class BacktestConfig:
         """
         dp_d = d.get("data_provider_config") or {}
         if isinstance(dp_d, dict):
+            extra = dp_d.get("extra_underlying_paths") or {}
             dp_config = DataProviderConfig(
                 underlying_path=dp_d.get("underlying_path", ""),
                 options_path=dp_d.get("options_path", ""),
@@ -144,6 +147,7 @@ class BacktestConfig:
                 missing_data_policy=dp_d.get("missing_data_policy", "RAISE"),
                 max_quote_age=_parse_max_quote_age(dp_d.get("max_quote_age"), "max_quote_age" in dp_d),
                 default_multiplier=float(dp_d.get("default_multiplier", 100.0)),
+                extra_underlying_paths=dict(extra),
             )
         else:
             dp_config = dp_d
@@ -188,4 +192,5 @@ class BacktestConfig:
             instrument_type=str(d.get("instrument_type", "option")),
             futures_contract_spec=fc,
             strategy_name=str(d.get("strategy_name", "")),
+            symbols=list(d.get("symbols", []) or []),
         )

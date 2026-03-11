@@ -17,7 +17,14 @@ from src.portfolio.accounting import extract_marks
 
 
 def _instrument_available(snapshot: MarketSnapshot, instrument_id: str, symbol: str) -> bool:
-    """Check if instrument is available in snapshot (option or underlying)."""
+    """Check if instrument is available in snapshot (option or underlying).
+
+    For multi-symbol equity (underlying_bars_by_symbol), checks that dict (263).
+    """
+    if snapshot.underlying_bars_by_symbol is not None:
+        bar = snapshot.underlying_bars_by_symbol.get(instrument_id)
+        if bar is not None:
+            return True
     if snapshot.underlying_bar is not None and instrument_id == symbol:
         return True
     if snapshot.option_quotes is not None:

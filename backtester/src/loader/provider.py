@@ -154,7 +154,10 @@ class LocalFileDataProvider(DataProvider):
             self._underlying_df_cache[key] = None
             return None
         ext = "parquet" if self._config.storage_backend == "parquet" else "csv"
-        path = self._config.underlying_path / f"{symbol}_{timeframe}.{ext}"
+        base_path = self._config.extra_underlying_paths.get(
+            symbol, self._config.underlying_path
+        )
+        path = base_path / f"{symbol}_{timeframe}.{ext}"
         df = load_underlying_bars_df(path)
         self._underlying_df_cache[key] = df
         if df is not None and not df.empty:
@@ -231,6 +234,19 @@ class LocalFileDataProvider(DataProvider):
             timezone="UTC",
             rows=rows,
         )
+
+    def get_underlying_bars_multi(
+        self,
+        symbols: list[str],
+        timeframe: str,
+        start: datetime,
+        end: datetime,
+    ) -> dict[str, Bars]:
+        """Load bars for multiple symbols. Used by multi-symbol equity backtests."""
+        result: dict[str, Bars] = {}
+        for sym in symbols:
+            result[sym] = self.get_underlying_bars(sym, timeframe, start, end)
+        return result
 
     def get_option_chain(self, symbol: str, ts: datetime) -> list[str]:
         self._ensure_metadata()

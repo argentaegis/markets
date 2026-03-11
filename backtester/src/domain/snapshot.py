@@ -21,6 +21,8 @@ class MarketSnapshot:
     Reasoning: Bar-close ticks drive iteration; each tick gets one snapshot.
     metadata slot for future extensions (e.g. volatility surface).
     futures_bars: bar history for futures runs; engine populates when instrument_type=future (110).
+    underlying_bars_by_symbol: current bar per symbol for multi-symbol equity runs (263).
+    underlying_history_by_symbol: lookback history per symbol for multi-symbol equity runs (263).
     """
 
     ts: datetime
@@ -28,6 +30,8 @@ class MarketSnapshot:
     option_quotes: Quotes | None
     metadata: dict[str, Any] | None = None
     futures_bars: list[BarRow] | None = None
+    underlying_bars_by_symbol: dict[str, BarRow | None] | None = None
+    underlying_history_by_symbol: dict[str, list[BarRow]] | None = None
 
 
 def build_market_snapshot(
@@ -36,6 +40,8 @@ def build_market_snapshot(
     option_quotes: Quotes | None,
     metadata: dict[str, Any] | None = None,
     futures_bars: list[BarRow] | None = None,
+    underlying_bars_by_symbol: dict[str, BarRow | None] | None = None,
+    underlying_history_by_symbol: dict[str, list[BarRow]] | None = None,
 ) -> MarketSnapshot:
     """Build MarketSnapshot from DataProvider output. No DataFrames.
 
@@ -48,4 +54,6 @@ def build_market_snapshot(
         option_quotes=option_quotes,
         metadata=metadata or {},
         futures_bars=futures_bars,
+        underlying_bars_by_symbol=underlying_bars_by_symbol,
+        underlying_history_by_symbol=underlying_history_by_symbol,
     )

@@ -138,6 +138,13 @@ class StrategizerStrategy(Strategy):
                 "risk_pct": self._strategy_params.get("risk_pct", 0.01),
                 "max_qty": self._strategy_params.get("max_qty", 10),
             }
+        elif strategy_name == "tactical_asset_allocation":
+            symbols = config.symbols or [config.symbol]
+            init_kwargs = {
+                "symbols": symbols,
+                "sma_period": self._strategy_params.get("sma_period", 200),
+                "timeframe": config.timeframe_base,
+            }
         self._strategy = cls(**init_kwargs)
 
     def on_step(
@@ -152,27 +159,31 @@ class StrategizerStrategy(Strategy):
         symbol = self._config.symbol
         timeframe = self._config.timeframe_base
 
-        # Build bars_by_symbol from futures_bars or underlying_bar
+        # Build bars_by_symbol from futures_bars, underlying_bar, or multi-symbol history
         lookback = 500
         req = getattr(self._strategy, "requirements", None)
         if req is not None:
             lookback = req().lookback
 
         bars_by_symbol: dict[str, dict[str, list[BarInput]]] = {}
-        bar_list: list[BarRow] = []
-        if self._config.instrument_type == "future" and snapshot.futures_bars:
-            bar_list = list(snapshot.futures_bars)[-lookback:]
-        elif snapshot.underlying_bar:
-            bar_list = [snapshot.underlying_bar]
-
-        bars_by_symbol[symbol] = {timeframe: [_bar_row_to_bar_input(b) for b in bar_list]}
-
-        # Build specs: futures_contract_spec or minimal for equity
         specs: dict = {}
-        if self._config.futures_contract_spec:
-            specs[symbol] = self._config.futures_contract_spec
+        if snapshot.underlying_history_by_symbol is not None:
+            for sym, hist in snapshot.underlying_history_by_symbol.items():
+                bars_by_symbol[sym] = {
+                    timeframe: [_bar_row_to_bar_input(b) for b in hist[-lookback:]]
+                }
+                specs[sym] = _MinimalSpec()
         else:
-            specs[symbol] = _MinimalSpec()
+            bar_list: list[BarRow] = []
+            if self._config.instrument_type == "future" and snapshot.futures_bars:
+                bar_list = list(snapshot.futures_bars)[-lookback:]
+            elif snapshot.underlying_bar:
+                bar_list = [snapshot.underlying_bar]
+            bars_by_symbol[symbol] = {timeframe: [_bar_row_to_bar_input(b) for b in bar_list]}
+            if self._config.futures_contract_spec:
+                specs[symbol] = self._config.futures_contract_spec
+            else:
+                specs[symbol] = _MinimalSpec()
 
         portfolio = _BacktesterPortfolioView(state_view)
 

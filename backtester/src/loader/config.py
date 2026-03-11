@@ -21,6 +21,7 @@ class DataProviderConfig:
     underlying_path: Path | str
     options_path: Path | str
     timeframes_supported: list[str] = field(default_factory=lambda: ["1d", "1h", "1m"])
+    extra_underlying_paths: dict[str, Path] = field(default_factory=dict)  # symbol -> path for multi-symbol
     storage_backend: Literal["csv", "parquet"] = "parquet"
     missing_data_policy: MissingDataPolicy = "RAISE"
     max_quote_age: timedelta | int | None = 60  # seconds; None = no staleness check (historical)
@@ -29,6 +30,10 @@ class DataProviderConfig:
     def __post_init__(self) -> None:
         self.underlying_path = Path(self.underlying_path)
         self.options_path = Path(self.options_path)
+        self.extra_underlying_paths = {
+            k: Path(v) if isinstance(v, str) else v
+            for k, v in self.extra_underlying_paths.items()
+        }
 
     def get_max_quote_age_seconds(self) -> float | None:
         """Return max age in seconds, or None to disable staleness check (historical backtesting)."""
@@ -40,9 +45,11 @@ class DataProviderConfig:
 
     def to_dict(self) -> dict:
         age = self.get_max_quote_age_seconds()
+        extra = {k: str(v) for k, v in self.extra_underlying_paths.items()}
         return {
             "underlying_path": str(self.underlying_path),
             "options_path": str(self.options_path),
+            "extra_underlying_paths": extra,
             "timeframes_supported": self.timeframes_supported,
             "storage_backend": self.storage_backend,
             "missing_data_policy": self.missing_data_policy,
