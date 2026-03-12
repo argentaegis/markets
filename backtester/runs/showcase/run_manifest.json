@@ -1,5 +1,5 @@
 {
-  "run_id": "202603111917_ESH1_1m_20260102_20260102",
+  "run_id": "202603112302_ESH1_1m_20260102_20260102",
   "config": {
     "symbol": "ESH1",
     "start": "2026-01-02T14:31:00+00:00",
@@ -8,6 +8,7 @@
     "data_provider_config": {
       "underlying_path": "src/loader/tests/fixtures/underlying",
       "options_path": "src/loader/tests/fixtures/options",
+      "extra_underlying_paths": {},
       "timeframes_supported": [
         "1d",
         "1h",
@@ -34,12 +35,14 @@
         "timezone": "America/New_York"
       }
     },
-    "strategy_name": "orb_5m"
+    "strategy_name": "orb_5m",
+    "symbols": []
   },
   "provider_diagnostics": {
     "config": {
       "underlying_path": "src/loader/tests/fixtures/underlying",
       "options_path": "src/loader/tests/fixtures/options",
+      "extra_underlying_paths": {},
       "timeframes_supported": [
         "1d",
         "1h",
@@ -60,5 +63,5 @@
       "crossed_quotes_sanitized": 0
     }
   },
-  "git_hash": "ddb41f7"
+  "git_hash": "9f341a7"
 }

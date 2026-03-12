@@ -167,3 +167,120 @@ def test_to_dict_json_serializable() -> None:
     assert isinstance(d, dict)
     json_str = json.dumps(d)
     assert "initial_cash" in json_str
+
+
+def test_sharpe_null_when_few_observations() -> None:
+    """Sharpe is null when equity curve has fewer than 20 return observations."""
+    result = _make_result(equity_values=[100_000 + i * 10 for i in range(10)])  # 10 points = 9 returns
+    sm = compute_summary(result)
+    assert sm.sharpe is None
+    assert sm.sharpe_annualization is None
+
+
+def test_sharpe_computed_when_enough_observations() -> None:
+    """Sharpe is computed when >= 20 return observations."""
+    import math
+
+    # 25 equity points -> 24 returns (> 20)
+    base = 100_000
+    eq = [base + i * 100 for i in range(25)]  # linear growth
+    result = _make_result(equity_values=eq)
+    sm = compute_summary(result)
+    assert sm.sharpe is not None
+    assert sm.sharpe_annualization == "1m/98280"
+    # Constant positive returns -> high Sharpe
+    assert sm.sharpe > 0
+
+
+def test_cagr_null_when_sub_day() -> None:
+    """CAGR is null when run spans less than 1 day."""
+    config = _make_config(
+        start=_utc(14, 30),
+        end=_utc(14, 35),
+    )
+    result = BacktestResult(
+        config=config,
+        equity_curve=[
+            EquityPoint(ts=_utc(14, 30 + i), equity=100_000 + i * 100)
+            for i in range(10)
+        ],
+    )
+    sm = compute_summary(result)
+    assert sm.cagr is None
+
+
+def test_cagr_computed_when_multi_day() -> None:
+    """CAGR is computed when run spans at least 1 day."""
+    from datetime import timedelta
+
+    start = datetime(2020, 1, 1, tzinfo=timezone.utc)
+    end = start + timedelta(days=365)
+    config = _make_config(start=start, end=end)
+    result = BacktestResult(
+        config=config,
+        equity_curve=[
+            EquityPoint(ts=start, equity=100_000),
+            EquityPoint(ts=end, equity=110_000),
+        ],
+    )
+    sm = compute_summary(result)
+    assert sm.cagr is not None
+    assert sm.cagr == pytest.approx(0.10, rel=0.01)
+
+
+def test_turnover_computed_from_fills() -> None:
+    """Turnover = sum(abs(fill_notional)) / mean(equity)."""
+    orders = [
+        Order(id="o1", ts=_utc(14, 31), instrument_id="SPY", side="BUY", qty=10, order_type="market"),
+        Order(id="o2", ts=_utc(14, 32), instrument_id="SPY", side="SELL", qty=10, order_type="market"),
+    ]
+    fills = [
+        Fill(order_id="o1", ts=_utc(14, 31), fill_price=400.0, fill_qty=10),
+        Fill(order_id="o2", ts=_utc(14, 32), fill_price=401.0, fill_qty=10),
+    ]
+    eq = [100_000, 104_000, 100_100]  # mean ~101367
+    result = BacktestResult(
+        config=_make_config(),
+        equity_curve=[EquityPoint(ts=_utc(14, 30 + i), equity=eq[i]) for i in range(3)],
+        orders=orders,
+        fills=fills,
+        instrument_multipliers={"SPY": 1.0},
+    )
+    sm = compute_summary(result)
+    # notional: 4000 + 4010 = 8010, mean_equity ~101367
+    assert sm.turnover is not None
+    assert sm.turnover == pytest.approx(8010 / 101367, rel=0.01)
+
+
+def test_turnover_null_when_empty_equity() -> None:
+    """Turnover is null when equity curve is empty."""
+    result = BacktestResult(config=_make_config(), equity_curve=[], fills=[], orders=[])
+    sm = compute_summary(result)
+    assert sm.turnover is None
+
+
+def test_num_open_positions() -> None:
+    """num_open_positions counts trades with is_open=True."""
+    # One closed trade, one open (from final_marks)
+    orders = [
+        Order(id="b1", ts=_utc(14, 31), instrument_id="SPY", side="BUY", qty=1, order_type="market"),
+        Order(id="s1", ts=_utc(14, 32), instrument_id="SPY", side="SELL", qty=1, order_type="market"),
+        Order(id="b2", ts=_utc(14, 33), instrument_id="SPY", side="BUY", qty=1, order_type="market"),
+    ]
+    fills = [
+        Fill(order_id="b1", ts=_utc(14, 31), fill_price=400.0, fill_qty=1),
+        Fill(order_id="s1", ts=_utc(14, 32), fill_price=401.0, fill_qty=1),
+        Fill(order_id="b2", ts=_utc(14, 33), fill_price=402.0, fill_qty=1),
+    ]
+    open_marks = {"SPY": (405.0, _utc(14, 35))}
+    result = BacktestResult(
+        config=_make_config(),
+        equity_curve=[EquityPoint(ts=_utc(14, 30 + i), equity=100_000 + i * 50) for i in range(6)],
+        orders=orders,
+        fills=fills,
+        final_marks={"SPY": 405.0},
+        instrument_multipliers={"SPY": 1.0},
+    )
+    sm = compute_summary(result)
+    assert sm.num_trades == 1  # closed
+    assert sm.num_open_positions == 1  # open at end

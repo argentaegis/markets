@@ -8,6 +8,7 @@ orchestrates all writers. Datetimes formatted as ISO strings (A5 determinism).
 from __future__ import annotations
 
 import csv
+import dataclasses
 import json
 import subprocess
 from datetime import datetime
@@ -235,24 +236,7 @@ def generate_report(
     )
     summary = compute_summary(result)
     if elapsed_seconds is not None:
-        summary = SummaryMetrics(
-            initial_cash=summary.initial_cash,
-            final_equity=summary.final_equity,
-            total_return_pct=summary.total_return_pct,
-            realized_pnl=summary.realized_pnl,
-            unrealized_pnl=summary.unrealized_pnl,
-            max_drawdown=summary.max_drawdown,
-            max_drawdown_pct=summary.max_drawdown_pct,
-            num_trades=summary.num_trades,
-            num_winning=summary.num_winning,
-            num_losing=summary.num_losing,
-            win_rate=summary.win_rate,
-            total_fees=summary.total_fees,
-            start=summary.start,
-            end=summary.end,
-            num_steps=summary.num_steps,
-            elapsed_seconds=elapsed_seconds,
-        )
+        summary = dataclasses.replace(summary, elapsed_seconds=elapsed_seconds)
 
     # Provider diagnostics
     provider_data = None

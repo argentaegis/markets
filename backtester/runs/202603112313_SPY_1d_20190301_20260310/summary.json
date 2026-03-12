@@ -14,5 +14,10 @@
   "start": "2019-03-01T00:00:00+00:00",
   "end": "2026-03-10T00:00:00+00:00",
   "num_steps": 1765,
-  "elapsed_seconds": 36.3
+  "num_open_positions": 14,
+  "elapsed_seconds": 36.98,
+  "sharpe": 0.7602,
+  "cagr": 0.094563,
+  "turnover": 21.3911,
+  "sharpe_annualization": "1d/252"
 }

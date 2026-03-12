@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>orb_5m — ESH1 (Future)</title>
+  <title>covered_call — SPY (Option)</title>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -18,28 +18,28 @@
   </style>
 </head>
 <body>
-  <h1>orb_5m — ESH1 (Future)</h1>
+  <h1>covered_call — SPY (Option)</h1>
 
   <h2>Summary</h2>
   <table>
     
-        <tr><td>Strategy</td><td>orb_5m</td></tr>
-        <tr><td>Symbol</td><td>ESH1</td></tr>
-        <tr><td>Asset Type</td><td>Future</td></tr>
+        <tr><td>Strategy</td><td>covered_call</td></tr>
+        <tr><td>Symbol</td><td>SPY</td></tr>
+        <tr><td>Asset Type</td><td>Option</td></tr>
 
-        <tr><td>Initial Cash</td><td>$500,000.00</td></tr>
-        <tr><td>Final Equity</td><td>$500,087.50</td></tr>
-        <tr><td>Total Return</td><td>0.02%</td></tr>
-        <tr><td>Max Drawdown</td><td>$0.00 (0.00%)</td></tr>
-        <tr><td>Trades</td><td>0 (W: 0 / L: 0) / 1 open</td></tr>
+        <tr><td>Initial Cash</td><td>$100,000.00</td></tr>
+        <tr><td>Final Equity</td><td>$99,991.71</td></tr>
+        <tr><td>Total Return</td><td>-0.01%</td></tr>
+        <tr><td>Max Drawdown</td><td>$6.29 (0.01%)</td></tr>
+        <tr><td>Trades</td><td>1 (W: 0 / L: 1)</td></tr>
         <tr><td>Win Rate</td><td>0.00%</td></tr>
         <tr><td>Sharpe</td><td>—</td></tr>
         <tr><td>CAGR</td><td>—</td></tr>
-        <tr><td>Turnover</td><td>0.54</td></tr>
+        <tr><td>Turnover</td><td>0.01</td></tr>
         <tr><td>Total Fees</td><td>$0.00</td></tr>
-        <tr><td>Period</td><td>2026-01-02T14:31:00+00:00 to 2026-01-02T14:37:00+00:00</td></tr>
-        <tr><td>Steps</td><td>7</td></tr>
-        <tr><td>Run Time</td><td>0.15s</td></tr>
+        <tr><td>Period</td><td>2026-01-02T14:31:00+00:00 to 2026-01-02T14:35:00+00:00</td></tr>
+        <tr><td>Steps</td><td>5</td></tr>
+        <tr><td>Run Time</td><td>0.12s</td></tr>
 
   </table>
   
@@ -49,29 +49,29 @@
   <script>
     Plotly.newPlot('equity-curve', [
       {
-        x: ["2026-01-02T14:31:00+00:00", "2026-01-02T14:32:00+00:00", "2026-01-02T14:33:00+00:00", "2026-01-02T14:34:00+00:00", "2026-01-02T14:35:00+00:00", "2026-01-02T14:36:00+00:00", "2026-01-02T14:37:00+00:00"],
-        y: [500000.0, 500000.0, 500000.0, 500000.0, 500000.0, 500087.5, 500087.5],
+        x: ["2026-01-02T14:31:00+00:00", "2026-01-02T14:32:00+00:00", "2026-01-02T14:33:00+00:00", "2026-01-02T14:34:00+00:00", "2026-01-02T14:35:00+00:00"],
+        y: [99995.0, 99998.0, 99991.7125, 99991.7125, 99991.7125],
         type: 'scatter',
         mode: 'lines',
         name: 'Equity',
         line: { color: '#3498db', width: 2 }
       },
       {
-        x: ["2026-01-02T14:31:00+00:00", "2026-01-02T14:32:00+00:00", "2026-01-02T14:33:00+00:00", "2026-01-02T14:34:00+00:00", "2026-01-02T14:35:00+00:00", "2026-01-02T14:36:00+00:00", "2026-01-02T14:37:00+00:00"],
-        y: Array(7).fill(500000.0),
+        x: ["2026-01-02T14:31:00+00:00", "2026-01-02T14:32:00+00:00", "2026-01-02T14:33:00+00:00", "2026-01-02T14:34:00+00:00", "2026-01-02T14:35:00+00:00"],
+        y: Array(5).fill(100000.0),
         type: 'scatter',
         mode: 'lines',
         name: 'Initial Cash',
         line: { color: '#555', width: 1, dash: 'dot' }
       },
       {
-        x: ["2026-01-02T14:36:00+00:00"],
-        y: [500087.5],
+        x: ["2026-01-02T14:31:00+00:00", "2026-01-02T14:33:00+00:00"],
+        y: [99995.0, 99991.7125],
         type: 'scatter',
         mode: 'markers',
         name: 'Fills',
         marker: { color: '#e67e22', size: 10, symbol: 'triangle-up' },
-        text: ["ESH1 BUY: $5410.25 x 1"],
+        text: ["SPY|2026-01-17|C|480|100 BUY: $5.22 x 1", "SPY|2026-01-17|C|480|100 SELL: $5.14 x 1"],
         hoverinfo: 'text+x'
       }
     ], {
@@ -89,8 +89,8 @@
   <div id="drawdown"></div>
   <script>
     Plotly.newPlot('drawdown', [{
-      x: ["2026-01-02T14:31:00+00:00", "2026-01-02T14:32:00+00:00", "2026-01-02T14:33:00+00:00", "2026-01-02T14:34:00+00:00", "2026-01-02T14:35:00+00:00", "2026-01-02T14:36:00+00:00", "2026-01-02T14:37:00+00:00"],
-      y: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      x: ["2026-01-02T14:31:00+00:00", "2026-01-02T14:32:00+00:00", "2026-01-02T14:33:00+00:00", "2026-01-02T14:34:00+00:00", "2026-01-02T14:35:00+00:00"],
+      y: [0.0, 0.0, -6.287500000005821, -6.287500000005821, -6.287500000005821],
       type: 'scatter',
       fill: 'tozeroy',
       fillcolor: 'rgba(231, 76, 60, 0.3)',
@@ -110,10 +110,10 @@
     <div id="trade-pnl"></div>
     <script>
       Plotly.newPlot('trade-pnl', [{
-        x: ["ESH1 (LONG) (Open)"],
-        y: [87.5],
+        x: ["SPY|2026-01-17|C|480|100 (LONG)"],
+        y: [-8.287499999999959],
         type: 'bar',
-        marker: { color: ["#95a5a6"] }
+        marker: { color: ["#e74c3c"] }
       }], {
         margin: { t: 20, b: 60, l: 70, r: 30 },
         yaxis: { title: 'P&L ($)' },

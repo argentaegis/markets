@@ -64,7 +64,17 @@ Why this run is representative:
 Why `summary.json` shows `num_trades: 0`:
 
 - the position remains open at run end, so there is no closed trade
-- the open position still appears in `trades.csv` and in the HTML report as a marked open trade
+- `num_open_positions: 1` makes this explicit; the open position also appears in `trades.csv` and the HTML report
+
+### Analytics showcase (TAA)
+
+For runs with enough data (≥20 return observations, ≥1 day), `summary.json` and the HTML report include risk-adjusted metrics:
+
+- **Sharpe** (annualized) — `mean(step_returns) / std(step_returns) * sqrt(N)` where N is inferred from `timeframe_base`
+- **CAGR** — compound annual growth rate
+- **Turnover** — `sum(abs(fill_notional)) / mean(equity)` (capital deployment intensity)
+
+The Tactical Asset Allocation run (`configs/tactical_asset_allocation_example.yaml`) over 2019–2026 demonstrates these metrics; the short ORB showcase shows `null` for Sharpe/CAGR by design (too few observations / sub-day span).
 
 ## Modeling Assumptions
 

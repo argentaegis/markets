@@ -193,9 +193,6 @@ def _render_html(
         <tr><td>Asset Type</td><td>""" + (_format_asset_type(instrument_type) or "—") + """</td></tr>
 """
 
-    num_open = sum(1 for r in trades if str(r.get("is_open", "")).lower() == "true") if trades else 0
-    trades_suffix = f" / {num_open} open" if num_open else ""
-
     # Per-symbol P&L summary (when multiple instruments)
     by_symbol_html = ""
     if trades:
@@ -220,6 +217,23 @@ def _render_html(
   </table>
 """
 
+    def _fmt_sharpe(val) -> str:
+        return f"{val:.2f}" if val is not None else "—"
+
+    def _fmt_cagr(val) -> str:
+        return f"{val * 100:.2f}%" if val is not None else "—"
+
+    def _fmt_turnover(val) -> str:
+        return f"{val:.2f}" if val is not None else "—"
+
+    sharpe = summary.get("sharpe")
+    cagr = summary.get("cagr")
+    turnover = summary.get("turnover")
+    num_open = summary.get("num_open_positions")
+    if num_open is None and trades:
+        num_open = sum(1 for r in trades if str(r.get("is_open", "")).lower() == "true")
+    trades_suffix = f" / {num_open} open" if num_open else ""
+
     summary_rows = metadata_rows + f"""
         <tr><td>Initial Cash</td><td>{_fmt_dollar(summary.get('initial_cash', 0))}</td></tr>
         <tr><td>Final Equity</td><td>{_fmt_dollar(summary.get('final_equity', 0))}</td></tr>
@@ -227,6 +241,9 @@ def _render_html(
         <tr><td>Max Drawdown</td><td>{_fmt_dollar(summary.get('max_drawdown', 0))} ({_fmt_pct(summary.get('max_drawdown_pct', 0))})</td></tr>
         <tr><td>Trades</td><td>{summary.get('num_trades', 0)} (W: {summary.get('num_winning', 0)} / L: {summary.get('num_losing', 0)}){trades_suffix}</td></tr>
         <tr><td>Win Rate</td><td>{_fmt_pct(summary.get('win_rate', 0))}</td></tr>
+        <tr><td>Sharpe</td><td>{_fmt_sharpe(sharpe)}</td></tr>
+        <tr><td>CAGR</td><td>{_fmt_cagr(cagr)}</td></tr>
+        <tr><td>Turnover</td><td>{_fmt_turnover(turnover)}</td></tr>
         <tr><td>Total Fees</td><td>{_fmt_dollar(summary.get('total_fees', 0))}</td></tr>
         <tr><td>Period</td><td>{summary.get('start', '')} to {summary.get('end', '')}</td></tr>
         <tr><td>Steps</td><td>{summary.get('num_steps', 0)}</td></tr>
