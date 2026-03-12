@@ -49,6 +49,8 @@ cp backend/config.example.yaml backend/config.yaml
 
 Edit `backend/config.yaml` to enable/disable strategies and configure watchlists. Without this file, defaults apply (DummyStrategy enabled, SimProvider).
 
+**Note:** The example config enables `orb_5m` with `source: strategizer`, which expects an HTTP service at `STRATEGIZER_URL` (default `http://localhost:8001`). No such service is included in this repo. For local dev without a strategizer HTTP wrapper, disable `orb_5m` and enable `dummy` in `config.yaml`.
+
 ### 3. Install dependencies
 
 ```bash
@@ -117,6 +119,7 @@ npm run preview
 | `BACKEND_PORT` | `8000` | Port for the backend API server |
 | `FRONTEND_PORT` | `5173` | Port for the frontend dev server |
 | `OBSERVER_PROVIDER` | `sim` | Data provider: `sim` or `schwab` |
+| `STRATEGIZER_URL` | `http://localhost:8001` | URL for strategizer HTTP service (only when strategies with `source: strategizer` are enabled; no service is included in this repo) |
 | `OBSERVER_DB_PATH` | *(unset)* | SQLite path for state persistence; unset = disabled |
 | `OBSERVER_CONFIG` | `config.yaml` | Path to strategy/engine config file |
 | `SCHWAB_API_KEY` | — | Schwab API key (required for schwab provider) |

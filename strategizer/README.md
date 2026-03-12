@@ -27,6 +27,7 @@ signals = strategy.evaluate(ts, bars_by_symbol, specs, portfolio, step_index=1, 
 | orb_5m | Opening range breakout (futures) |
 | trend_entry_trailing_stop | MA cross + trailing stop |
 | trend_follow_risk_sized | Trend-following entry with portfolio-aware risk sizing |
+| tactical_asset_allocation | Faber-style trend filter, monthly rebalance, multi-ETF |
 | buy_and_hold | Options entry |
 | buy_and_hold_underlying | Equity entry |
 | covered_call | Time-based |

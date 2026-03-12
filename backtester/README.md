@@ -16,6 +16,7 @@ The tracked example configs in `configs/` are fixture-backed and reproducible fr
 | `configs/covered_call_example.yaml` | `covered_call` | `strategizer/` | Buy an option and exit on step 3 |
 | `configs/buy_and_hold_underlying_example.yaml` | `buy_and_hold_underlying` | `strategizer/` | Buy SPY shares and hold through the run |
 | `configs/orb_5m_example.yaml` | `orb_5m` | `strategizer/` | Opening-range breakout example on ESH1 using 1m bars |
+| `configs/tactical_asset_allocation_example.yaml` | `tactical_asset_allocation` | `strategizer/` | Faber-style TAA across 6 ETFs, 2019–2026, Sharpe/CAGR in report |
 
 `orb_5m` retains its historic name, but the current implementation runs on `1m` bars.
 
@@ -41,6 +42,7 @@ All runs write artifacts beneath `runs/`:
 | `covered_call` | Multi-step option flow with deterministic exit timing |
 | `buy_and_hold_underlying` | Underlying/equity path with multiplier `1.0` |
 | `orb_5m` | Futures breakout logic, tick normalization, and futures specs |
+| `tactical_asset_allocation` | Faber-style trend filter, monthly rebalance, multi-ETF (Sharpe, CAGR, turnover) |
 | `trend_entry_trailing_stop` | Broker-managed trailing-stop exit |
 | `trend_follow_risk_sized` | Portfolio-aware position sizing from account equity and stop distance |
 
