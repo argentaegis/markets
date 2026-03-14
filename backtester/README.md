@@ -13,7 +13,8 @@ The tracked example configs in `configs/` are fixture-backed and reproducible fr
 | Config | Strategy | Source | Description |
 |--------|----------|--------|-------------|
 | `configs/buy_and_hold_example.yaml` | `buy_and_hold` | `strategizer/` | Buy one option on the first step and hold |
-| `configs/covered_call_example.yaml` | `covered_call` | `strategizer/` | Buy an option and exit on step 3 |
+| `configs/covered_call_example.yaml` | `covered_call` | `strategizer/` | Buy an option and exit on step 5 (5yr, catalog data) |
+| `configs/covered_call_example_quick.yaml` | `covered_call` | `strategizer/` | Same, 3 months for fast iteration (~60 steps) |
 | `configs/buy_and_hold_underlying_example.yaml` | `buy_and_hold_underlying` | `strategizer/` | Buy SPY shares and hold through the run |
 | `configs/orb_5m_example.yaml` | `orb_5m` | `strategizer/` | Opening-range breakout example on ESH1 using 1m bars |
 | `configs/tactical_asset_allocation_example.yaml` | `tactical_asset_allocation` | `strategizer/` | Faber-style TAA across 6 ETFs, 2019–2026, Sharpe/CAGR in report |
@@ -76,7 +77,7 @@ For runs with enough data (≥20 return observations, ≥1 day), `summary.json` 
 - **CAGR** — compound annual growth rate
 - **Turnover** — `sum(abs(fill_notional)) / mean(equity)` (capital deployment intensity)
 
-The Tactical Asset Allocation run (`configs/tactical_asset_allocation_example.yaml`) over 2019–2026 demonstrates these metrics; the short ORB showcase shows `null` for Sharpe/CAGR by design (too few observations / sub-day span).
+The Tactical Asset Allocation run (`configs/tactical_asset_allocation_example.yaml`) over 2019–2026 demonstrates these metrics. That config uses `fill_timing: next_bar_open` and `broker: ibkr_equity_spread` (10 bps equity) for execution realism. The short ORB showcase shows `null` for Sharpe/CAGR by design (too few observations / sub-day span).
 
 ## Modeling Assumptions
 
@@ -85,13 +86,14 @@ The Tactical Asset Allocation run (`configs/tactical_asset_allocation_example.ya
 - Option fills use quote-aware behavior: buy at ask, sell at bid when both sides are available
 - When only a midpoint is available, the fill model applies a synthetic spread fallback
 - Futures fills are normalized to the configured tick size
-- Fees are modeled through the broker fee model
+- **Fill timing**: configurable `fill_timing` — `same_bar_close` (default) or `next_bar_open` to avoid execution lookahead (Plan 265)
+- **Broker fee schedules**: config selects a broker by name; fees differ by instrument type (equity, option, future). Built-in brokers: `ibkr`, `ibkr_equity_spread`, `tdameritrade`, `schwab`, `zero`. See `src/broker/fee_schedules.py`.
 - Portfolio state tracks cash, positions, realized P&L, unrealized P&L, equity, and invariant checks
 - Reports persist config snapshots, provider diagnostics, and a git hash for reproducibility
 
 ### Still simplified
 
-- Underlying market and limit-style fills use the same bar close plus synthetic spread rather than a fuller intrabar execution model
+- Default fill timing remains same-bar close; `next_bar_open` is opt-in
 - Limit-order realism is intentionally limited
 - There are no partial fills or market-impact assumptions
 - Buying-power logic is conservative but not broker-grade margin modeling

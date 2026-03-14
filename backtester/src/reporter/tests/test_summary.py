@@ -22,12 +22,14 @@ def _utc(hour: int, minute: int = 0) -> datetime:
 
 
 def _make_config(**overrides) -> BacktestConfig:
+    from src.loader.config import DataProviderConfig
     defaults = dict(
         symbol="SPY",
         start=_utc(14, 30),
         end=_utc(14, 35),
         timeframe_base="1m",
-        data_provider_config={},
+        data_provider_config=DataProviderConfig(underlying_path="", options_path=""),
+        broker="zero",
         initial_cash=100_000.0,
     )
     defaults.update(overrides)

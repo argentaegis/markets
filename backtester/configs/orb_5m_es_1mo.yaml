@@ -1,5 +1,6 @@
 # ORB strategy on ES — 1 month (Jan 2026)
 symbol: ES
+broker: zero
 start: "2026-01-02T14:30:00Z"
 end: "2026-01-31T21:00:00Z"
 timeframe_base: "1m"

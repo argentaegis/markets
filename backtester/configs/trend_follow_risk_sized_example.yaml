@@ -1,5 +1,6 @@
 # Example trend_follow_risk_sized — portfolio-aware MA-cross + risk-based sizing (Plan 255).
 symbol: ESH1
+broker: zero
 instrument_type: future
 start: "2026-01-02T14:30:00+00:00"
 end: "2026-01-02T16:00:00+00:00"

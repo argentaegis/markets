@@ -63,8 +63,10 @@ class ORB5mStrategy(Strategy):
         bars_by_symbol: dict[str, dict[str, list[BarInput]]],
         specs: dict[str, ContractSpecView],
         portfolio: PortfolioView,
+        *,
         step_index: int | None = None,
         strategy_params: dict | None = None,
+        option_chain: list[str] | None = None,
     ) -> list[Signal]:
         params = strategy_params or {}
         qty = int(params.get("qty", self._qty))

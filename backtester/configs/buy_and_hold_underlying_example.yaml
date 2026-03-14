@@ -1,5 +1,6 @@
 # Example BuyAndHoldUnderlying — buy SPY equity on the first bar and hold to run end.
 symbol: SPY
+broker: zero
 instrument_type: equity
 start: "2026-01-02T21:00:00+00:00"
 end: "2026-01-08T21:00:00+00:00"

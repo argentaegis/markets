@@ -55,3 +55,27 @@ def test_compute_fees_per_contract_only(order: Order, fill: Fill) -> None:
     """Per-contract fee only."""
     config = FeeModelConfig(per_contract=0.50, per_order=0.0)
     assert compute_fees(order, fill, config) == pytest.approx(0.50 * 5)
+
+
+def test_compute_fees_pct_of_notional(order: Order, fill: Fill) -> None:
+    """pct_of_notional adds basis-point style cost (Plan 265)."""
+    # fill: 5.30 * 5 = 26.50 notional (option), multiplier=100 -> 2650
+    config = FeeModelConfig(per_contract=0.0, per_order=0.0, pct_of_notional=0.001)
+    fees = compute_fees(order, fill, config, multiplier=100.0)
+    assert fees == pytest.approx(0.001 * 2650)  # 2.65
+
+
+def test_compute_fees_pct_of_notional_equity_multiplier_one() -> None:
+    """Equity notional: multiplier=1 so notional = price * qty."""
+    order = Order(
+        id="ord-1",
+        ts=_utc(2026, 1, 2, 14, 35),
+        instrument_id="SPY",
+        side="BUY",
+        qty=100,
+        order_type="market",
+    )
+    fill = Fill(order_id="ord-1", ts=_utc(2026, 1, 2, 14, 35), fill_price=480.0, fill_qty=100, fees=0.0)
+    config = FeeModelConfig(per_contract=0.0, per_order=0.0, pct_of_notional=0.001)
+    fees = compute_fees(order, fill, config, multiplier=1.0)
+    assert fees == pytest.approx(0.001 * 48000)  # 48

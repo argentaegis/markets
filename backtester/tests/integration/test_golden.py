@@ -14,7 +14,6 @@ from pathlib import Path
 
 import pytest
 
-from src.broker.fee_model import FeeModelConfig
 from src.domain.config import BacktestConfig
 from src.engine.engine import run_backtest
 from src.engine.result import BacktestResult
@@ -36,7 +35,8 @@ def _utc(hour: int, minute: int = 0) -> datetime:
 
 def _engine_config(
     provider_config: DataProviderConfig,
-    fee_config: FeeModelConfig | None = None,
+    *,
+    broker: str = "zero",
 ) -> BacktestConfig:
     return BacktestConfig(
         symbol="SPY",
@@ -44,8 +44,8 @@ def _engine_config(
         end=_utc(14, 35),
         timeframe_base="1m",
         data_provider_config=provider_config,
+        broker=broker,
         initial_cash=100_000.0,
-        fee_config=fee_config,
     )
 
 
@@ -79,7 +79,15 @@ def _maybe_update_golden(request: pytest.FixtureRequest, result: BacktestResult,
             for ep in result.equity_curve:
                 writer.writerow([ep.ts.isoformat(), ep.equity])
     if prefix == "covered_call":
-        trades = derive_trades(result.fills, result.orders)
+        open_marks = None
+        if result.final_marks and result.equity_curve:
+            last_ts = result.equity_curve[-1].ts
+            open_marks = {k: (v, last_ts) for k, v in result.final_marks.items()}
+        trades = derive_trades(
+            result.fills, result.orders,
+            open_marks=open_marks,
+            instrument_multipliers=result.instrument_multipliers,
+        )
         with open(GOLDEN_DIR / f"expected_{prefix}_trades.csv", "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["instrument_id", "side", "qty", "entry_price", "exit_price", "realized_pnl", "fees"])
@@ -129,7 +137,11 @@ def test_golden_covered_call_summary(
     """CoveredCallStrategy summary matches golden values."""
     cfg = _engine_config(provider_config)
     provider = LocalFileDataProvider(provider_config)
-    strategy = StrategizerStrategy("covered_call", {"contract_id": CONTRACT, "exit_step": 3}, config=cfg)
+    strategy = StrategizerStrategy(
+        "covered_call",
+        {"symbol": "SPY", "shares_per_contract": 100, "contract_id": CONTRACT},
+        config=cfg,
+    )
     result = run_backtest(cfg, strategy, provider)
     _maybe_update_golden(request, result, "covered_call")
 
@@ -152,22 +164,34 @@ def test_golden_covered_call_trades(
     provider_config: DataProviderConfig,
     strategizer_required: None,
 ) -> None:
-    """CoveredCallStrategy trades.csv matches golden: 1 row, correct prices."""
+    """CoveredCallStrategy trades match golden: 2 rows (SPY + short call), correct prices."""
     cfg = _engine_config(provider_config)
     provider = LocalFileDataProvider(provider_config)
-    strategy = StrategizerStrategy("covered_call", {"contract_id": CONTRACT, "exit_step": 3}, config=cfg)
+    strategy = StrategizerStrategy(
+        "covered_call",
+        {"symbol": "SPY", "shares_per_contract": 100, "contract_id": CONTRACT},
+        config=cfg,
+    )
     result = run_backtest(cfg, strategy, provider)
-    trades = derive_trades(result.fills, result.orders)
+    open_marks = None
+    if result.final_marks and result.equity_curve:
+        last_ts = result.equity_curve[-1].ts
+        open_marks = {k: (v, last_ts) for k, v in result.final_marks.items()}
+    trades = derive_trades(
+        result.fills, result.orders,
+        open_marks=open_marks,
+        instrument_multipliers=result.instrument_multipliers,
+    )
 
     expected_rows = _load_golden_csv("expected_covered_call_trades.csv")
     assert len(trades) == len(expected_rows)
 
-    t = trades[0]
-    e = expected_rows[0]
-    assert t.side == e["side"]
-    assert t.entry_price == pytest.approx(float(e["entry_price"]), abs=0.01)
-    assert t.exit_price == pytest.approx(float(e["exit_price"]), abs=0.01)
-    assert t.realized_pnl == pytest.approx(float(e["realized_pnl"]), abs=0.01)
+    for t, e in zip(trades, expected_rows):
+        assert t.instrument_id == e["instrument_id"]
+        assert t.side == e["side"]
+        assert t.entry_price == pytest.approx(float(e["entry_price"]), abs=0.01)
+        assert t.exit_price == pytest.approx(float(e["exit_price"]), abs=0.01)
+        assert t.realized_pnl == pytest.approx(float(e["realized_pnl"]), abs=0.01)
 
 
 # ---------------------------------------------------------------------------
@@ -184,7 +208,11 @@ def test_golden_determinism(
     """Two identical CoveredCallStrategy runs produce byte-identical CSV/JSON (A5)."""
     cfg = _engine_config(provider_config)
 
-    strategy = StrategizerStrategy("covered_call", {"contract_id": CONTRACT, "exit_step": 3}, config=cfg)
+    strategy = StrategizerStrategy(
+        "covered_call",
+        {"symbol": "SPY", "shares_per_contract": 100, "contract_id": CONTRACT},
+        config=cfg,
+    )
     p1 = LocalFileDataProvider(provider_config)
     r1 = run_backtest(cfg, strategy, p1)
     dir1 = generate_report(r1, tmp_path / "run1")
@@ -242,7 +270,7 @@ def test_golden_invariants_hold(
 
     for name, params in [
             ("buy_and_hold", {"contract_id": CONTRACT}),
-        ("covered_call", {"contract_id": CONTRACT, "exit_step": 3}),
+            ("covered_call", {"symbol": "SPY", "shares_per_contract": 100, "contract_id": CONTRACT}),
     ]:
         strategy = StrategizerStrategy(name, params, config=cfg)
         provider = LocalFileDataProvider(provider_config)
@@ -276,11 +304,14 @@ def test_golden_with_fees(
     provider_config: DataProviderConfig,
     strategizer_required: None,
 ) -> None:
-    """CoveredCallStrategy + FeeModelConfig: fees match golden, reduce P&L."""
-    fee_cfg = FeeModelConfig(per_contract=0.65, per_order=0.50)
-    cfg = _engine_config(provider_config, fee_config=fee_cfg)
+    """CoveredCallStrategy + broker tdameritrade: fees match golden, reduce P&L."""
+    cfg = _engine_config(provider_config, broker="tdameritrade")
     provider = LocalFileDataProvider(provider_config)
-    strategy = StrategizerStrategy("covered_call", {"contract_id": CONTRACT, "exit_step": 3}, config=cfg)
+    strategy = StrategizerStrategy(
+        "covered_call",
+        {"symbol": "SPY", "shares_per_contract": 100, "contract_id": CONTRACT},
+        config=cfg,
+    )
     result = run_backtest(cfg, strategy, provider)
     _maybe_update_golden(request, result, "covered_call_fees")
 
@@ -329,6 +360,7 @@ def _golden_orb_config() -> BacktestConfig:
         end=datetime(2026, 1, 2, 14, 37, tzinfo=timezone.utc),
         timeframe_base="1m",
         data_provider_config=dp,
+        broker="zero",
         initial_cash=500_000.0,
         instrument_type="future",
         futures_contract_spec=fc,

@@ -14,8 +14,23 @@ from src.domain.portfolio import PortfolioState
 from src.domain.position import Position
 from src.domain.snapshot import build_market_snapshot
 from src.loader.provider import LocalFileDataProvider
-from src.broker import FeeModelConfig, FillModelConfig, submit_orders, validate_order
+from src.broker import FillModelConfig, submit_orders, validate_order
+from src.broker.fee_schedules import get_broker_schedule
 from src.portfolio import apply_fill, assert_portfolio_invariants, extract_marks, mark_to_market
+
+
+def _get_instrument_type(order: Order) -> str:
+    return "equity" if order.instrument_id == "SPY" else "option"
+
+
+def _submit(orders, snapshot, portfolio, *, symbol="SPY", fee_broker="zero", **kwargs):
+    fee_schedule = get_broker_schedule(fee_broker)
+    return submit_orders(
+        orders, snapshot, portfolio, symbol=symbol,
+        fee_schedule=fee_schedule,
+        get_instrument_type=_get_instrument_type,
+        **kwargs,
+    )
 
 
 def _utc(year: int, month: int, day: int, hour: int = 0, minute: int = 0) -> datetime:
@@ -45,7 +60,7 @@ def test_fillmodel_quote_based_buy_fills_at_ask(provider: LocalFileDataProvider)
     snapshot, _ = _build_snapshot(provider, ts, [contract_id])
     portfolio = PortfolioState(cash=100_000.0, positions={}, realized_pnl=0.0, unrealized_pnl=0.0, equity=100_000.0)
     order = Order(id="ord-1", ts=ts, instrument_id=contract_id, side="BUY", qty=1, order_type="market")
-    fills = submit_orders([order], snapshot, portfolio, symbol="SPY")
+    fills = _submit([order], snapshot, portfolio, symbol="SPY")
     assert len(fills) == 1
     q = snapshot.option_quotes.quotes.get(contract_id)
     if hasattr(q, "ask") and q.ask is not None:
@@ -62,7 +77,7 @@ def test_fillmodel_quote_based_sell_fills_at_bid(provider: LocalFileDataProvider
     pos = Position(instrument_id=contract_id, qty=1, avg_price=5.20, multiplier=100.0, instrument_type="option")
     portfolio = PortfolioState(cash=99_480.0, positions={contract_id: pos}, realized_pnl=0.0, unrealized_pnl=0.0, equity=100_000.0)
     order = Order(id="ord-1", ts=ts, instrument_id=contract_id, side="SELL", qty=1, order_type="market")
-    fills = submit_orders([order], snapshot, portfolio, symbol="SPY")
+    fills = _submit([order], snapshot, portfolio, symbol="SPY")
     assert len(fills) == 1
     q = snapshot.option_quotes.quotes.get(contract_id)
     if hasattr(q, "bid") and q.bid is not None:
@@ -78,7 +93,7 @@ def test_fillmodel_synthetic_spread_when_no_quotes(provider: LocalFileDataProvid
     assert bar is not None
     portfolio = PortfolioState(cash=100_000.0, positions={}, realized_pnl=0.0, unrealized_pnl=0.0, equity=100_000.0)
     order = Order(id="ord-1", ts=ts, instrument_id="SPY", side="BUY", qty=100, order_type="market")
-    fills = submit_orders([order], snapshot, portfolio, symbol="SPY")
+    fills = _submit([order], snapshot, portfolio, symbol="SPY")
     assert len(fills) == 1
     assert fills[0].fill_price >= bar.close
     assert fills[0].fill_qty == 100
@@ -92,7 +107,7 @@ def test_fillmodel_fill_qty_matches_order(provider: LocalFileDataProvider) -> No
     snapshot, _ = _build_snapshot(provider, ts, [contract_id])
     portfolio = PortfolioState(cash=100_000.0, positions={}, realized_pnl=0.0, unrealized_pnl=0.0, equity=100_000.0)
     order = Order(id="ord-1", ts=ts, instrument_id=contract_id, side="BUY", qty=5, order_type="market")
-    fills = submit_orders([order], snapshot, portfolio, symbol="SPY")
+    fills = _submit([order], snapshot, portfolio, symbol="SPY")
     assert len(fills) == 1
     assert fills[0].fill_qty == 5
 
@@ -137,7 +152,7 @@ def test_order_validation_accepts_valid_order(provider: LocalFileDataProvider) -
     snapshot, _ = _build_snapshot(provider, ts, [contract_id])
     portfolio = PortfolioState(cash=100_000.0, positions={}, realized_pnl=0.0, unrealized_pnl=0.0, equity=100_000.0)
     order = Order(id="ord-1", ts=ts, instrument_id=contract_id, side="BUY", qty=1, order_type="market")
-    fills = submit_orders([order], snapshot, portfolio, symbol="SPY")
+    fills = _submit([order], snapshot, portfolio, symbol="SPY")
     assert len(fills) == 1
     assert fills[0].order_id == order.id
     assert fills[0].fill_qty == 1
@@ -168,7 +183,7 @@ def test_broker_submit_then_apply_fill_invariant(provider: LocalFileDataProvider
     portfolio = PortfolioState(cash=100_000.0, positions={}, realized_pnl=0.0, unrealized_pnl=0.0, equity=100_000.0)
 
     order = Order(id="ord-1", ts=ts, instrument_id=contract_id, side="BUY", qty=1, order_type="market")
-    fills = submit_orders([order], snapshot, portfolio, symbol="SPY")
+    fills = _submit([order], snapshot, portfolio, symbol="SPY")
     assert len(fills) == 1
 
     order_by_id = {o.id: o for o in [order]}
@@ -191,8 +206,7 @@ def test_broker_fees_applied_and_deducted(provider: LocalFileDataProvider) -> No
     portfolio = PortfolioState(cash=initial_cash, positions={}, realized_pnl=0.0, unrealized_pnl=0.0, equity=initial_cash)
 
     order = Order(id="ord-1", ts=ts, instrument_id=contract_id, side="BUY", qty=2, order_type="market")
-    fee_config = FeeModelConfig(per_contract=0.65, per_order=0.50)
-    fills = submit_orders([order], snapshot, portfolio, symbol="SPY", fee_config=fee_config)
+    fills = _submit([order], snapshot, portfolio, symbol="SPY", fee_broker="tdameritrade")
     assert len(fills) == 1
 
     expected_fees = 0.65 * 2 + 0.50
@@ -215,7 +229,7 @@ def test_broker_mixed_batch_valid_and_rejected(provider: LocalFileDataProvider) 
     invalid_unknown = Order(id="ord-2", ts=ts, instrument_id="SPY|2026-01-17|C|999|100", side="BUY", qty=1, order_type="market")
     invalid_negative = Order(id="ord-3", ts=ts, instrument_id=contract_id, side="BUY", qty=-1, order_type="market")
 
-    fills = submit_orders([valid_order, invalid_unknown, invalid_negative], snapshot, portfolio, symbol="SPY")
+    fills = _submit([valid_order, invalid_unknown, invalid_negative], snapshot, portfolio, symbol="SPY")
     assert len(fills) == 1
     assert fills[0].order_id == valid_order.id
 
@@ -231,7 +245,7 @@ def test_broker_multiple_contracts_in_batch(provider: LocalFileDataProvider) -> 
 
     order1 = Order(id="ord-1", ts=ts, instrument_id=c480, side="BUY", qty=1, order_type="market")
     order2 = Order(id="ord-2", ts=ts, instrument_id=c485, side="BUY", qty=1, order_type="market")
-    fills = submit_orders([order1, order2], snapshot, portfolio, symbol="SPY")
+    fills = _submit([order1, order2], snapshot, portfolio, symbol="SPY")
     assert len(fills) == 2
 
     order_ids = {f.order_id for f in fills}
@@ -266,7 +280,7 @@ def test_broker_stale_quote_produces_no_fill(provider_config) -> None:
     portfolio = PortfolioState(cash=100_000.0, positions={}, realized_pnl=0.0, unrealized_pnl=0.0, equity=100_000.0)
 
     order = Order(id="ord-1", ts=ts, instrument_id=contract_id, side="BUY", qty=1, order_type="market")
-    fills = submit_orders([order], snapshot, portfolio, symbol="SPY")
+    fills = _submit([order], snapshot, portfolio, symbol="SPY")
     assert len(fills) == 0
 
 
@@ -282,7 +296,7 @@ def test_broker_fill_order_id_in_orders(provider: LocalFileDataProvider) -> None
         Order(id="ord-1", ts=ts, instrument_id=contract_id, side="BUY", qty=1, order_type="market"),
         Order(id="ord-2", ts=ts, instrument_id=contract_id, side="SELL", qty=1, order_type="market"),
     ]
-    fills = submit_orders(orders, snapshot, portfolio, symbol="SPY")
+    fills = _submit(orders, snapshot, portfolio, symbol="SPY")
     order_ids = {o.id for o in orders}
     assert all(f.order_id in order_ids for f in fills)
 
@@ -297,7 +311,7 @@ def test_broker_synthetic_spread_config_affects_fill_price(provider: LocalFileDa
 
     order = Order(id="ord-1", ts=ts, instrument_id="SPY", side="BUY", qty=1, order_type="market")
     fill_config = FillModelConfig(synthetic_spread_bps=100.0)
-    fills = submit_orders([order], snapshot, portfolio, symbol="SPY", fill_config=fill_config)
+    fills = _submit([order], snapshot, portfolio, symbol="SPY", fill_config=fill_config)
     assert len(fills) == 1
     half_spread = bar.close * 0.01 / 2
     assert fills[0].fill_price == pytest.approx(bar.close + half_spread)

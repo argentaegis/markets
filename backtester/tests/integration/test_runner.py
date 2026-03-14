@@ -66,7 +66,7 @@ def test_cli_buy_and_hold_strategy(tmp_path: Path, strategizer_required: None) -
 
 @pytest.mark.integration
 def test_cli_with_fees(tmp_path: Path, strategizer_required: None) -> None:
-    """CLI supports fee_config in YAML."""
+    """CLI supports broker in YAML."""
     config_path = CONFIGS_DIR / "with_fees.yaml"
     run_dir = run_backtest_cli(config_path, tmp_path / "output")
     summary = json.loads((run_dir / "summary.json").read_text())

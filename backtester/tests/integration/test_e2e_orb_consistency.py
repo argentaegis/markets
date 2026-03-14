@@ -38,6 +38,7 @@ def _run_backtester_orb():
         end=datetime(2026, 1, 2, 14, 36, tzinfo=timezone.utc),  # Single breakout step
         timeframe_base="1m",
         data_provider_config=dp,
+        broker="zero",
         initial_cash=500_000.0,
         instrument_type="future",
         futures_contract_spec=fc,

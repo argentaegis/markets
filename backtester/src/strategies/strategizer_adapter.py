@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import time
 
+from strategizer.protocol import OptionFetchSpec
 from strategizer.strategies import STRATEGY_REGISTRY
 from strategizer.types import BarInput, PositionView, Signal
 
@@ -147,6 +148,20 @@ class StrategizerStrategy(Strategy):
             }
         self._strategy = cls(**init_kwargs)
 
+    def option_fetch_spec(
+        self,
+        ts,
+        portfolio: PortfolioState,
+        underlying_close: float | None,
+        step_index: int,
+    ) -> OptionFetchSpec | None:
+        portfolio_view = _BacktesterPortfolioView(portfolio)
+        if hasattr(self._strategy, "option_fetch_spec"):
+            return self._strategy.option_fetch_spec(
+                ts, portfolio_view, underlying_close, step_index, self._strategy_params
+            )
+        return None
+
     def on_step(
         self,
         snapshot: MarketSnapshot,
@@ -187,6 +202,10 @@ class StrategizerStrategy(Strategy):
 
         portfolio = _BacktesterPortfolioView(state_view)
 
+        option_chain: list[str] | None = None
+        if snapshot.option_quotes is not None and snapshot.option_quotes.quotes:
+            option_chain = list(snapshot.option_quotes.quotes.keys())
+
         signals = self._strategy.evaluate(
             ts=snapshot.ts,
             bars_by_symbol=bars_by_symbol,
@@ -194,6 +213,7 @@ class StrategizerStrategy(Strategy):
             portfolio=portfolio,
             step_index=step_index,
             strategy_params=self._strategy_params,
+            option_chain=option_chain,
         )
 
         return [_signal_to_order(s, snapshot.ts, self._config) for s in signals]

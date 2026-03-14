@@ -44,3 +44,11 @@ class Requirements:
     timeframes: list[str]
     lookback: int
     needs_quotes: bool = False
+
+
+@dataclass(frozen=True)
+class OptionFetchSpec:
+    """What option data to fetch. None = use config default (full or sigma-filtered)."""
+
+    contract_ids: list[str] | None = None  # Explicit IDs; [] = only positions (marks)
+    sigma_limit: float | None = None  # When contract_ids is None: filtered chain

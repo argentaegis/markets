@@ -8,6 +8,7 @@ Caches underlying bars and option quotes for efficiency.
 
 from __future__ import annotations
 
+import math
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
@@ -253,6 +254,35 @@ class LocalFileDataProvider(DataProvider):
         ts_date = ts.date() if hasattr(ts, "date") else ts
         meta_list = (self._metadata_by_underlying or {}).get(symbol, [])
         result = [r["contract_id"] for r in meta_list if r.get("expiry", ts_date) > ts_date]
+        return sorted(result)
+
+    def get_option_chain_filtered(
+        self,
+        symbol: str,
+        ts: datetime,
+        underlying_price: float,
+        sigma_limit: float,
+        vol: float,
+    ) -> list[str]:
+        """Chain filtered to contracts within ±sigma_limit σ of ATM (Plan 266).
+
+        sigma_price = S * vol * sqrt(T/365). Keep if |strike - S| <= sigma_limit * sigma_price.
+        """
+        self._ensure_metadata()
+        ts_date = ts.date() if hasattr(ts, "date") else ts
+        meta_list = (self._metadata_by_underlying or {}).get(symbol, [])
+        result: list[str] = []
+        for r in meta_list:
+            expiry = r.get("expiry")
+            if expiry is None or expiry <= ts_date:
+                continue
+            strike = float(r.get("strike", 0))
+            t_days = (expiry - ts_date).days if hasattr(expiry, "__sub__") else 1
+            t_frac = max(t_days, 1) / 365.0
+            sigma_price = underlying_price * vol * math.sqrt(t_frac)
+            band = sigma_limit * sigma_price
+            if abs(strike - underlying_price) <= band:
+                result.append(r["contract_id"])
         return sorted(result)
 
     def _append_quote_missingness(self, cid: str, reason: str, ts: datetime) -> None:

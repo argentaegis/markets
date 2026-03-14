@@ -33,6 +33,10 @@ class MinimalStrategy(Strategy):
         bars_by_symbol: dict[str, dict[str, list[BarInput]]],
         specs: dict[str, object],
         portfolio: object,
+        *,
+        step_index: int | None = None,
+        strategy_params: dict | None = None,
+        option_chain: list[str] | None = None,
     ) -> list[Signal]:
         return []
 
@@ -60,3 +64,22 @@ def test_minimal_strategy_evaluate_returns_empty() -> None:
         portfolio=object(),
     )
     assert result == []
+
+
+def test_minimal_strategy_option_fetch_spec_returns_none() -> None:
+    """Default option_fetch_spec returns None (use config)."""
+    strategy = MinimalStrategy()
+    ts = datetime(2026, 1, 15, 14, 35, 0, tzinfo=timezone.utc)
+
+    class MockPortfolio:
+        def get_positions(self) -> dict:
+            return {}
+
+        def get_cash(self) -> float:
+            return 100_000.0
+
+        def get_equity(self) -> float:
+            return 100_000.0
+
+    spec = strategy.option_fetch_spec(ts, MockPortfolio(), 480.0, 1, {})
+    assert spec is None

@@ -13,7 +13,6 @@ from pathlib import Path
 
 import pytest
 
-from src.broker.fee_model import FeeModelConfig
 from src.domain.config import BacktestConfig
 from src.domain.order import Order
 from src.domain.portfolio import PortfolioState
@@ -36,7 +35,7 @@ def _engine_config(
     end: datetime | None = None,
     timeframe: str = "1m",
     initial_cash: float = 100_000.0,
-    fee_config: FeeModelConfig | None = None,
+    broker: str = "zero",
 ) -> BacktestConfig:
     """Build BacktestConfig for reporter integration tests."""
     return BacktestConfig(
@@ -45,8 +44,8 @@ def _engine_config(
         end=end or _utc(2026, 1, 2, 14, 35),
         timeframe_base=timeframe,
         data_provider_config=provider_config,
+        broker=broker,
         initial_cash=initial_cash,
-        fee_config=fee_config,
     )
 
 
@@ -308,9 +307,8 @@ def test_report_with_fees(
     provider: LocalFileDataProvider,
     report_output_dir: Path,
 ) -> None:
-    """FeeModelConfig applied. summary.json total_fees > 0. fills.csv fees column populated."""
-    fee_cfg = FeeModelConfig(per_contract=0.65, per_order=0.50)
-    cfg = _engine_config(provider_config, fee_config=fee_cfg)
+    """Broker tdameritrade applied. summary.json total_fees > 0. fills.csv fees column populated."""
+    cfg = _engine_config(provider_config, broker="tdameritrade")
     result = run_backtest(cfg, BuyOnceStrategy(), provider)
     run_dir = generate_report(result, report_output_dir)
 

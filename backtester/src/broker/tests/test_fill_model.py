@@ -133,6 +133,26 @@ def test_fill_order_synthetic_spread_underlying_from_bar() -> None:
     assert fill.fill_price == pytest.approx(480.5 + half_spread)
 
 
+def test_fill_order_use_open_uses_bar_open_instead_of_close() -> None:
+    """use_open=True uses bar.open as mid (Plan 265 next-bar-open)."""
+    from src.domain.bars import BarRow
+
+    ts = _utc(2026, 1, 2, 14, 35)
+    bar = BarRow(ts=ts, open=479.0, high=481.0, low=478.0, close=480.5, volume=1000.0)
+    snapshot = MarketSnapshot(ts=ts, underlying_bar=bar, option_quotes=None)
+    config = FillModelConfig(synthetic_spread_bps=20.0)
+
+    order = Order(id="ord-1", ts=ts, instrument_id="SPY", side="BUY", qty=1, order_type="market")
+    fill_close = fill_order(order, snapshot, symbol="SPY", fill_config=config, use_open=False)
+    fill_open = fill_order(order, snapshot, symbol="SPY", fill_config=config, use_open=True)
+    assert fill_close is not None
+    assert fill_open is not None
+    half_spread_close = 480.5 * 0.002 / 2
+    half_spread_open = 479.0 * 0.002 / 2
+    assert fill_close.fill_price == pytest.approx(480.5 + half_spread_close)
+    assert fill_open.fill_price == pytest.approx(479.0 + half_spread_open)
+
+
 def test_fill_order_futures_tick_aligned() -> None:
     """Futures order with futures_spec produces tick-aligned fill_price (090)."""
     from datetime import time

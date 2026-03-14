@@ -1,5 +1,6 @@
-# Test config — fee_config for fee assertion tests
+# Test config — broker tdameritrade for fee assertion tests (0.65/contract, 0.50/order)
 symbol: SPY
+broker: tdameritrade
 start: "2026-01-02T14:31:00+00:00"
 end: "2026-01-02T14:35:00+00:00"
 timeframe_base: 1m
@@ -16,7 +17,3 @@ data_provider:
   timeframes_supported: ["1d", "1h", "1m"]
   missing_data_policy: RETURN_PARTIAL
   max_quote_age: null
-
-fee_config:
-  per_contract: 0.65
-  per_order: 0.50

@@ -36,6 +36,7 @@ def domain_clock_config(fixtures_root) -> BacktestConfig:
         end=end,
         timeframe_base="1d",
         data_provider_config=dp_config,
+        broker="zero",
         seed=42,
     )
 

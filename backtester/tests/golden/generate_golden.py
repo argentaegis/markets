@@ -18,7 +18,6 @@ from pathlib import Path
 # Ensure project root is on path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from src.broker.fee_model import FeeModelConfig
 from src.domain.config import BacktestConfig
 from src.engine.engine import run_backtest
 from src.loader.provider import DataProviderConfig, LocalFileDataProvider
@@ -47,7 +46,8 @@ def _provider_config() -> DataProviderConfig:
 
 def _engine_config(
     provider_config: DataProviderConfig,
-    fee_config: FeeModelConfig | None = None,
+    *,
+    broker: str = "zero",
 ) -> BacktestConfig:
     return BacktestConfig(
         symbol="SPY",
@@ -55,8 +55,8 @@ def _engine_config(
         end=_utc(14, 35),
         timeframe_base="1m",
         data_provider_config=provider_config,
+        broker=broker,
         initial_cash=100_000.0,
-        fee_config=fee_config,
     )
 
 
@@ -83,13 +83,25 @@ def generate() -> None:
         for ep in result_bh.equity_curve:
             writer.writerow([ep.ts.isoformat(), ep.equity])
 
-    # --- CoveredCall ---
+    # --- CoveredCall (Plan 267: true covered call — hold shares, sell calls) ---
     cfg_cc = _engine_config(pc)
     provider_cc = LocalFileDataProvider(pc)
-    strategy_cc = StrategizerStrategy("covered_call", {"contract_id": CONTRACT, "exit_step": 3}, config=cfg_cc)
+    strategy_cc = StrategizerStrategy(
+        "covered_call",
+        {"symbol": "SPY", "shares_per_contract": 100, "contract_id": CONTRACT},
+        config=cfg_cc,
+    )
     result_cc = run_backtest(cfg_cc, strategy_cc, provider_cc)
     summary_cc = compute_summary(result_cc)
-    trades_cc = derive_trades(result_cc.fills, result_cc.orders)
+    open_marks_cc = None
+    if result_cc.final_marks and result_cc.equity_curve:
+        last_ts = result_cc.equity_curve[-1].ts
+        open_marks_cc = {k: (v, last_ts) for k, v in result_cc.final_marks.items()}
+    trades_cc = derive_trades(
+        result_cc.fills, result_cc.orders,
+        open_marks=open_marks_cc,
+        instrument_multipliers=result_cc.instrument_multipliers,
+    )
 
     with open(GOLDEN_DIR / "expected_covered_call_summary.json", "w") as f:
         json.dump(summary_cc.to_dict(), f, indent=2)
@@ -102,10 +114,13 @@ def generate() -> None:
             writer.writerow([t.instrument_id, t.side, t.qty, t.entry_price, t.exit_price, t.realized_pnl, t.fees])
 
     # --- CoveredCall with fees ---
-    fee_cfg = FeeModelConfig(per_contract=0.65, per_order=0.50)
-    cfg_fees = _engine_config(pc, fee_config=fee_cfg)
+    cfg_fees = _engine_config(pc, broker="tdameritrade")
     provider_fees = LocalFileDataProvider(pc)
-    strategy_fees = StrategizerStrategy("covered_call", {"contract_id": CONTRACT, "exit_step": 3}, config=cfg_fees)
+    strategy_fees = StrategizerStrategy(
+        "covered_call",
+        {"symbol": "SPY", "shares_per_contract": 100, "contract_id": CONTRACT},
+        config=cfg_fees,
+    )
     result_fees = run_backtest(cfg_fees, strategy_fees, provider_fees)
     summary_fees = compute_summary(result_fees)
 

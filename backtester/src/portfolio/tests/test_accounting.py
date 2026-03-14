@@ -18,12 +18,14 @@ from src.domain.position import Position
 from src.domain.quotes import Quote, QuoteStatus, Quotes
 from src.domain.snapshot import MarketSnapshot
 
+from src.domain.contract import ContractSpec
 from src.portfolio.accounting import (
     apply_fill,
     assert_portfolio_invariants,
     extract_marks,
     mark_to_market,
     settle_expirations,
+    settle_physical_assignment,
 )
 
 
@@ -680,3 +682,54 @@ def test_settle_expirations_skips_non_expired(
     assert sample_contract_id not in result.positions
     assert other_id in result.positions
     assert result.positions[other_id].qty == 1
+
+
+# --- Phase 6: settle_physical_assignment (Plan 267) ---
+
+
+def test_settle_physical_assignment_short_call_itm(
+    sample_ts: datetime,
+    sample_contract_id: str,
+) -> None:
+    """Short call ITM: deliver shares, receive strike; option closed; shares reduced."""
+    from datetime import date
+
+    short_call = Position(
+        instrument_id=sample_contract_id,
+        qty=-1,
+        avg_price=5.0,
+        multiplier=100.0,
+        instrument_type="option",
+    )
+    spy_pos = Position(
+        instrument_id="SPY",
+        qty=100,
+        avg_price=480.0,
+        multiplier=1.0,
+        instrument_type="equity",
+    )
+    cash = 50_000.0
+    portfolio = PortfolioState(
+        cash=cash,
+        positions={sample_contract_id: short_call, "SPY": spy_pos},
+        realized_pnl=0.0,
+        unrealized_pnl=0.0,
+        equity=cash + 100 * 480.0 + (-1) * 5.0 * 100,
+    )
+    spec = ContractSpec(
+        contract_id=sample_contract_id,
+        underlying_symbol="SPY",
+        strike=485.0,
+        expiry=date(2026, 3, 20),
+        right="C",
+        multiplier=100.0,
+    )
+    intrinsic = 2.50
+    result = settle_physical_assignment(portfolio, sample_contract_id, spec, intrinsic)
+
+    assert sample_contract_id not in result.positions
+    assert "SPY" not in result.positions
+    assert result.cash == pytest.approx(cash + 485.0 * 100)
+    share_realized = (485.0 - 480.0) * 100
+    option_realized = (5.0 - 2.50) * 100
+    assert result.realized_pnl == pytest.approx(share_realized + option_realized)

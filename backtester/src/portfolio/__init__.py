@@ -6,6 +6,7 @@ from src.portfolio.accounting import (
     extract_marks,
     mark_to_market,
     settle_expirations,
+    settle_physical_assignment,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "extract_marks",
     "mark_to_market",
     "settle_expirations",
+    "settle_physical_assignment",
 ]

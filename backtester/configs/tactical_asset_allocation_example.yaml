@@ -1,5 +1,6 @@
 # Tactical Asset Allocation — Faber-style trend filter across 6 core ETFs (Plan 263).
 # Monthly rebalance: hold when close > 200-day SMA, else cash. Equal-weight when active.
+# Plan 265: next-bar-open fill timing, 10 bps pct-of-notional cost (equity spread/slippage).
 symbol: SPY
 symbols: [SPY, QQQ, IWM, TLT, GLD, USO]
 instrument_type: equity
@@ -7,6 +8,8 @@ start: "2019-03-01T00:00:00+00:00"
 end: "2026-03-10T00:00:00+00:00"
 timeframe_base: "1d"
 initial_cash: 100000.0
+fill_timing: next_bar_open
+broker: ibkr_equity_spread  # 10 bps equity spread/slippage
 strategy:
   name: tactical_asset_allocation
   sma_period: 200

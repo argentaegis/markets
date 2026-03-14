@@ -2,6 +2,7 @@
 # Data: md import-databento --file data/cache/databento/xnas-itch-*.csv --symbol SPY --interval 1m --out data/exports/spy
 # Options: md import-philippdubach --cache-dir data/cache/philippdubach/parquet_spy --symbol SPY --out data/exports/options/spy
 symbol: SPY
+broker: zero
 instrument_type: equity
 start: "2023-02-27T14:30:00+00:00"
 end: "2025-02-27T21:00:00+00:00"

@@ -1,5 +1,6 @@
 # Test config — trend_entry_trailing_stop with trailing stop, uses fixtures
 symbol: ESH1
+broker: zero
 initial_cash: 500000.0  # ESH1 ~5412 needs ~270k per contract
 start: "2026-01-02T14:30:00+00:00"
 end: "2026-01-02T16:00:00+00:00"

@@ -1,9 +1,12 @@
 """Broker: validate orders, submit_orders → list[Fill].
 
 Conforms to 000 M4. Orchestrates FillModel and FeeModel.
+Fee schedule keyed by instrument_type (equity, option, future).
 """
 
 from __future__ import annotations
+
+from collections.abc import Callable
 
 from src.broker.fee_model import FeeModelConfig, compute_fees
 from src.broker.fill_model import FillModelConfig, fill_order
@@ -69,18 +72,22 @@ def submit_orders(
     portfolio: PortfolioState,
     *,
     symbol: str,
-    fee_config: FeeModelConfig | None = None,
+    fee_schedule: dict[str, FeeModelConfig],
+    get_instrument_type: Callable[[Order], str],
     fill_config: FillModelConfig | None = None,
     multiplier: float | None = None,
     futures_contract_spec: FuturesContractSpec | None = None,
+    use_open: bool = False,
 ) -> list[Fill]:
     """Submit orders; validate, fill, apply fees. Returns list of fills.
 
+    fee_schedule: dict keyed by instrument_type (equity, option, future).
+    get_instrument_type: callback to resolve instrument_type per order.
     When multiplier provided (e.g. instrument_type=future), used for buying power.
     When None, uses heuristic: equity=1, option=100.
     When futures_contract_spec provided, fill prices are tick-aligned (090).
+    use_open: fill underlying at bar open instead of close (Plan 265 next-bar-open).
     """
-    fee_cfg = fee_config or FeeModelConfig(per_contract=0.0, per_order=0.0)
     fill_cfg = fill_config or FillModelConfig()
     result: list[Fill] = []
     for order in orders:
@@ -92,10 +99,18 @@ def submit_orders(
             symbol=symbol,
             fill_config=fill_cfg,
             futures_spec=futures_contract_spec,
+            use_open=use_open,
         )
         if fill is None:
             continue
-        fees = compute_fees(order, fill, fee_cfg)
+        instrument_type = get_instrument_type(order)
+        fee_cfg = fee_schedule.get(instrument_type) or FeeModelConfig(
+            per_contract=0.0, per_order=0.0
+        )
+        mult_for_fee = multiplier if multiplier is not None else (
+            100.0 if order.instrument_id != symbol else 1.0
+        )
+        fees = compute_fees(order, fill, fee_cfg, multiplier=mult_for_fee)
         result.append(
             Fill(
                 order_id=fill.order_id,

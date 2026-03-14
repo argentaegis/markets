@@ -46,6 +46,7 @@ def trailing_config(trailing_provider_config: DataProviderConfig) -> BacktestCon
         end=datetime(2026, 1, 2, 16, 0, tzinfo=timezone.utc),
         timeframe_base="1m",
         data_provider_config=trailing_provider_config,
+        broker="zero",
         instrument_type="future",
         futures_contract_spec=fc,
         initial_cash=500_000.0,  # ESH26 at 5412 needs ~270k per contract

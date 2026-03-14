@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from .protocol import Requirements
+from .protocol import OptionFetchSpec, Requirements
 from .types import Signal
 
 if TYPE_CHECKING:
@@ -31,4 +31,19 @@ class Strategy(ABC):
         bars_by_symbol: dict[str, dict[str, list["BarInput"]]],
         specs: dict[str, "ContractSpecView"],
         portfolio: "PortfolioView",
+        *,
+        step_index: int | None = None,
+        strategy_params: dict | None = None,
+        option_chain: list[str] | None = None,
     ) -> list[Signal]: ...
+
+    def option_fetch_spec(
+        self,
+        ts: datetime,
+        portfolio: "PortfolioView",
+        underlying_close: float | None,
+        step_index: int,
+        strategy_params: dict,
+    ) -> OptionFetchSpec | None:
+        """Return what options to fetch. None = use config default (current behavior)."""
+        return None

@@ -61,8 +61,10 @@ class TrendFollowRiskSizedStrategy(Strategy):
         bars_by_symbol: dict[str, dict[str, list[BarInput]]],
         specs: dict[str, ContractSpecView],
         portfolio: PortfolioView,
+        *,
         step_index: int | None = None,
         strategy_params: dict | None = None,
+        option_chain: list[str] | None = None,
     ) -> list[Signal]:
         params = strategy_params or {}
         ma_period = int(params.get("ma_period", self._ma_period))

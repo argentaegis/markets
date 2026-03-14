@@ -30,6 +30,7 @@ def _sample_config() -> BacktestConfig:
         end=_utc(2026, 1, 31),
         timeframe_base="1d",
         data_provider_config=dp,
+        broker="zero",
     )
 
 

@@ -1,5 +1,6 @@
 # Trend entry trailing stop on ES — 1 month (Apr 2025)
 symbol: ES
+broker: zero
 instrument_type: future
 start: "2025-05-01T14:30:00+00:00"
 end: "2025-05-31T21:00:00+00:00"

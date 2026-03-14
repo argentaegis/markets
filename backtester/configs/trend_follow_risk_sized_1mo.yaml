@@ -1,5 +1,6 @@
 # trend_follow_risk_sized — 1 month (Jan 2026), uses catalog for ES data.
 symbol: ES
+broker: zero
 instrument_type: future
 start: "2026-01-02T14:30:00Z"
 end: "2026-01-31T21:00:00Z"

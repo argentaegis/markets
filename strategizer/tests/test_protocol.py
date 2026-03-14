@@ -7,7 +7,7 @@ from datetime import time
 
 import pytest
 
-from strategizer.protocol import ContractSpecView, Requirements
+from strategizer.protocol import ContractSpecView, OptionFetchSpec, Requirements
 from strategizer.types import PositionView
 
 
@@ -125,3 +125,20 @@ def test_requirements_immutable() -> None:
     req = Requirements(symbols=["ESH26"], timeframes=["1m"], lookback=80)
     with pytest.raises(FrozenInstanceError):
         req.lookback = 100
+
+
+def test_option_fetch_spec_contract_ids() -> None:
+    spec = OptionFetchSpec(contract_ids=["SPY|2026-01-17|C|480|100"])
+    assert spec.contract_ids == ["SPY|2026-01-17|C|480|100"]
+    assert spec.sigma_limit is None
+
+
+def test_option_fetch_spec_sigma_limit() -> None:
+    spec = OptionFetchSpec(sigma_limit=2.0)
+    assert spec.contract_ids is None
+    assert spec.sigma_limit == 2.0
+
+
+def test_option_fetch_spec_empty_contract_ids() -> None:
+    spec = OptionFetchSpec(contract_ids=[])
+    assert spec.contract_ids == []

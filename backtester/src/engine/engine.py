@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from typing import Callable
 
 from src.broker.broker import submit_orders
+from src.broker.fee_schedules import get_broker_schedule
 from src.broker.trailing_stop import TrailingStopManager
 from src.clock.clock import count_times, iter_times
 from src.domain.config import BacktestConfig
@@ -29,10 +30,12 @@ from src.portfolio.accounting import (
     extract_marks,
     mark_to_market,
     settle_expirations,
+    settle_physical_assignment,
 )
 
 from .result import BacktestResult, EquityPoint
 from .strategy import Strategy
+from strategizer.protocol import OptionFetchSpec
 
 
 def _get_lookback(strategy: Strategy) -> int:
@@ -61,6 +64,12 @@ def _needs_options(config: BacktestConfig | None) -> bool:
     return config.instrument_type == "option"
 
 
+def _has_option_positions(portfolio: PortfolioState, config: BacktestConfig) -> bool:
+    """True if portfolio holds any option positions (not underlying/symbols)."""
+    universe = {config.symbol} | set(config.symbols or [])
+    return any(pid not in universe for pid in portfolio.positions)
+
+
 def _build_step_snapshot(
     provider: DataProvider,
     symbol: str,
@@ -69,6 +78,9 @@ def _build_step_snapshot(
     *,
     config: BacktestConfig | None = None,
     strategy: Strategy | None = None,
+    portfolio: PortfolioState | None = None,
+    skip_options: bool = False,
+    step_index: int = 1,
 ) -> MarketSnapshot:
     """Build MarketSnapshot for one timestamp from DataProvider.
 
@@ -117,9 +129,56 @@ def _build_step_snapshot(
         bars = provider.get_underlying_bars(symbol, timeframe, ts, ts)
         bar = bars.rows[0] if bars.rows else None
 
-    if _needs_options(config):
-        chain = provider.get_option_chain(symbol, ts)
-        quotes = provider.get_option_quotes(chain, ts) if chain else None
+    if _needs_options(config) and not skip_options:
+        universe = {config.symbol} | set(config.symbols or []) if config else set()
+        option_position_ids = [
+            pid for pid in (portfolio.positions if portfolio else {})
+            if pid not in universe
+        ]
+        option_position_ids = list(dict.fromkeys(option_position_ids))
+
+        spec: OptionFetchSpec | None = None
+        if (
+            config is not None
+            and strategy is not None
+            and hasattr(strategy, "option_fetch_spec")
+            and portfolio is not None
+        ):
+            spec = strategy.option_fetch_spec(
+                ts, portfolio, bar.close if bar else None, step_index
+            )
+
+        if spec is not None and spec.contract_ids is not None:
+            contract_ids = list(set(spec.contract_ids) | set(option_position_ids))
+        elif spec is not None and spec.sigma_limit is not None and bar is not None and hasattr(provider, "get_option_chain_filtered"):
+            chain_ids = provider.get_option_chain_filtered(
+                symbol,
+                ts,
+                underlying_price=bar.close,
+                sigma_limit=spec.sigma_limit,
+                vol=config.option_chain_vol_default,
+            )
+            contract_ids = list(set(chain_ids) | set(option_position_ids))
+        elif config.option_contract_ids:
+            contract_ids = list(set(config.option_contract_ids) | set(option_position_ids))
+        elif (
+            config.option_chain_sigma_limit is not None
+            and bar is not None
+            and hasattr(provider, "get_option_chain_filtered")
+        ):
+            contract_ids = provider.get_option_chain_filtered(
+                symbol,
+                ts,
+                underlying_price=bar.close,
+                sigma_limit=config.option_chain_sigma_limit,
+                vol=config.option_chain_vol_default,
+            )
+            contract_ids = list(set(contract_ids) | set(option_position_ids))
+        else:
+            contract_ids = provider.get_option_chain(symbol, ts)
+            contract_ids = list(set(contract_ids) | set(option_position_ids))
+
+        quotes = provider.get_option_quotes(contract_ids, ts) if contract_ids else None
 
     return build_market_snapshot(
         ts, bar, quotes,
@@ -152,11 +211,14 @@ def _process_orders(
     snapshot: MarketSnapshot,
     portfolio: PortfolioState,
     config: BacktestConfig,
+    *,
+    use_open: bool = False,
 ) -> tuple[PortfolioState, list[Fill]]:
     """Submit orders via Broker; apply fills to portfolio. Returns updated portfolio and fills.
 
     Reasoning: Separates order-flow logic from main loop for readability.
     Broker handles validation, fill model, fee model internally.
+    use_open: fill at bar open (Plan 265 next-bar-open).
     """
     mult = None
     fc_spec = None
@@ -165,15 +227,21 @@ def _process_orders(
         fc_spec = config.futures_contract_spec
     elif config.instrument_type == "equity":
         mult = 1.0
+    fee_schedule = get_broker_schedule(config.broker)
+    get_instrument_type = lambda o: _instrument_params(
+        o.instrument_id, config.symbol, config
+    )[1]
     fills = submit_orders(
         orders,
         snapshot,
         portfolio,
         symbol=config.symbol,
-        fee_config=config.fee_config,
+        fee_schedule=fee_schedule,
+        get_instrument_type=get_instrument_type,
         fill_config=config.fill_config,
         multiplier=mult,
         futures_contract_spec=fc_spec,
+        use_open=use_open,
     )
     order_by_id = {o.id: o for o in orders}
     for fill in fills:
@@ -237,13 +305,16 @@ def _emit_events(
     orders: list[Order],
     fills: list[Fill],
     expired: dict[str, float],
+    physically_assigned: set[str] | None = None,
 ) -> list[Event]:
     """Emit MARKET, ORDER, FILL, LIFECYCLE events for one step.
 
     Reasoning: Centralized event emission keeps the main loop clean.
     Events collected in list for Reporter (Step 7).
+    physically_assigned: contract_ids settled via physical delivery (Plan 267).
     """
     events: list[Event] = []
+    assigned = physically_assigned or set()
     events.append(Event(ts=ts, type=EventType.MARKET, payload={"symbol": "SPY"}))
     for order in orders:
         events.append(Event(
@@ -258,10 +329,11 @@ def _emit_events(
             payload={"order_id": fill.order_id, "fill_price": fill.fill_price, "fill_qty": fill.fill_qty, "fees": fill.fees},
         ))
     for instrument_id, intrinsic in expired.items():
+        action = "ASSIGNMENT" if instrument_id in assigned else "EXPIRATION"
         events.append(Event(
             ts=ts,
             type=EventType.LIFECYCLE,
-            payload={"action": "EXPIRATION", "instrument_id": instrument_id, "intrinsic_value": intrinsic},
+            payload={"action": action, "instrument_id": instrument_id, "intrinsic_value": intrinsic},
         ))
     return events
 
@@ -293,11 +365,19 @@ def run_backtest(
     marks: dict[str, float] = {}
     trailing_manager = TrailingStopManager()
     tick_size_map = _build_tick_size_map(config)
+    next_bar_open = config.fill_timing == "next_bar_open"
+    pending_orders: list[Order] = []
 
     for step_index, ts in enumerate(
         iter_times(config.start, config.end, config.timeframe_base),
         start=1,
     ):
+        # Early skip: when option_contract_ids set and no option positions, we don't need
+        # options for marks. But we might need them for new orders (e.g. step 1 buy).
+        # Only skip when we have no positions AND we're past the strategy's last option step.
+        # For covered_call, that's step > exit_step. We don't have strategy params here.
+        # Disabled for now to avoid skipping step 1 (no positions yet but order incoming).
+        skip_options = False
         snapshot = _build_step_snapshot(
             provider,
             config.symbol,
@@ -305,13 +385,42 @@ def run_backtest(
             ts,
             config=config,
             strategy=strategy,
+            portfolio=portfolio,
+            skip_options=skip_options,
+            step_index=step_index,
         )
+
+        if next_bar_open and pending_orders:
+            portfolio, fills_pending = _process_orders(
+                pending_orders, snapshot, portfolio, config, use_open=True
+            )
+            result.orders.extend(pending_orders)
+            result.fills.extend(fills_pending)
+            order_by_id_pending = {o.id: o for o in pending_orders}
+            for fill in fills_pending:
+                order = order_by_id_pending.get(fill.order_id)
+                if order and order.trailing_stop_ticks is not None:
+                    trailing_manager.register_fill(fill, order)
+            for order in pending_orders:
+                if order.instrument_id not in result.instrument_multipliers:
+                    mult, _ = _instrument_params(order.instrument_id, config.symbol, config)
+                    result.instrument_multipliers[order.instrument_id] = mult
+            pending_orders = []
+
         orders = strategy.on_step(snapshot, portfolio, step_index=step_index)
-        result.orders.extend(orders)
-        portfolio, fills = _process_orders(orders, snapshot, portfolio, config)
+        if next_bar_open:
+            stop_orders = [o for o in orders if o.order_type == "stop"]
+            queue_orders = [o for o in orders if o.order_type != "stop"]
+            portfolio, fills = _process_orders(stop_orders, snapshot, portfolio, config)
+            pending_orders = queue_orders
+            orders_with_fills = stop_orders
+        else:
+            portfolio, fills = _process_orders(orders, snapshot, portfolio, config)
+            orders_with_fills = orders
+        result.orders.extend(orders_with_fills)
         result.fills.extend(fills)
 
-        order_by_id = {o.id: o for o in orders}
+        order_by_id = {o.id: o for o in orders_with_fills}
         for fill in fills:
             order = order_by_id.get(fill.order_id)
             if order and order.trailing_stop_ticks is not None:
@@ -324,7 +433,7 @@ def run_backtest(
             result.orders.append(order)
             result.fills.append(fill)
 
-        for order in orders:
+        for order in orders_with_fills:
             if order.instrument_id not in result.instrument_multipliers:
                 mult, _ = _instrument_params(order.instrument_id, config.symbol, config)
                 result.instrument_multipliers[order.instrument_id] = mult
@@ -334,17 +443,38 @@ def run_backtest(
                 result.instrument_multipliers[order.instrument_id] = mult
 
         all_fills = list(fills) + [f for f, _ in trailing_fills_orders]
-        all_orders = list(orders) + [o for _, o in trailing_fills_orders]
+        all_orders = list(orders_with_fills) + [o for _, o in trailing_fills_orders]
 
         marks = extract_marks(snapshot, config.symbol)
         portfolio = mark_to_market(portfolio, marks)
         bar_close = snapshot.underlying_bar.close if snapshot.underlying_bar else None
         expired = _detect_expirations(portfolio, provider, ts, bar_close, config=config)
+        physically_assigned: set[str] = set()
         if expired:
-            portfolio = settle_expirations(portfolio, ts, expired)
+            cash_expired: dict[str, float] = {}
+            for instrument_id, intrinsic in expired.items():
+                pos = portfolio.positions.get(instrument_id)
+                if (
+                    pos is not None
+                    and pos.qty < 0
+                    and intrinsic > 0
+                    and config.assignment_model == "physical"
+                ):
+                    spec = provider.get_contract_metadata(instrument_id)
+                    if spec is not None and spec.right == "C":
+                        portfolio = settle_physical_assignment(
+                            portfolio, instrument_id, spec, intrinsic
+                        )
+                        physically_assigned.add(instrument_id)
+                        continue
+                cash_expired[instrument_id] = intrinsic
+            if cash_expired:
+                portfolio = settle_expirations(portfolio, ts, cash_expired)
             portfolio = mark_to_market(portfolio, marks)
         assert_portfolio_invariants(portfolio, marks=marks)
-        result.events.extend(_emit_events(ts, snapshot, all_orders, all_fills, expired))
+        result.events.extend(_emit_events(
+            ts, snapshot, all_orders, all_fills, expired, physically_assigned
+        ))
         result.equity_curve.append(EquityPoint(ts=ts, equity=portfolio.equity))
 
         if on_progress:

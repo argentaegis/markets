@@ -1,5 +1,6 @@
 # Test config — uses src/loader/tests/fixtures (run from backtester root)
 symbol: SPY
+broker: zero
 start: "2026-01-02T14:31:00+00:00"
 end: "2026-01-02T14:35:00+00:00"
 timeframe_base: 1m

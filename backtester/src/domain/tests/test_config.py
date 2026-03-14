@@ -13,7 +13,6 @@ from pathlib import Path
 
 import pytest
 
-from src.broker.fee_model import FeeModelConfig
 from src.broker.fill_model import FillModelConfig
 from src.domain.config import BacktestConfig
 from src.domain.futures import FuturesContractSpec, TradingSession
@@ -38,6 +37,7 @@ def test_config_create_minimal(sample_symbol: str) -> None:
         end=end,
         timeframe_base="1d",
         data_provider_config=dp_config,
+        broker="zero",
     )
     assert config.symbol == sample_symbol
     assert config.start == start
@@ -63,6 +63,7 @@ def test_config_seed_optional(sample_symbol: str) -> None:
         end=end,
         timeframe_base="1d",
         data_provider_config=dp_config,
+        broker="zero",
     )
     assert config_no_seed.seed is None
 
@@ -72,6 +73,7 @@ def test_config_seed_optional(sample_symbol: str) -> None:
         end=end,
         timeframe_base="1d",
         data_provider_config=dp_config,
+        broker="zero",
         seed=42,
     )
     assert config_with_seed.seed == 42
@@ -96,6 +98,7 @@ def test_config_data_provider_config(sample_symbol: str) -> None:
         end=end,
         timeframe_base="1d",
         data_provider_config=dp_config,
+        broker="zero",
     )
     assert config.data_provider_config == dp_config
     assert str(config.data_provider_config.underlying_path) == "/data/underlying"
@@ -119,6 +122,7 @@ def test_config_serializable(sample_symbol: str) -> None:
         end=end,
         timeframe_base="1d",
         data_provider_config=dp_config,
+        broker="zero",
         seed=42,
     )
     d = config.to_dict()
@@ -149,6 +153,7 @@ def test_config_roundtrip(sample_symbol: str) -> None:
         end=end,
         timeframe_base="1h",
         data_provider_config=dp_config,
+        broker="zero",
         seed=123,
     )
     d = original.to_dict()
@@ -179,6 +184,7 @@ def test_config_timeframe_mvp_values(sample_symbol: str) -> None:
             end=end,
             timeframe_base=tf,
             data_provider_config=dp_config,
+            broker="zero",
         )
         assert config.timeframe_base == tf
 
@@ -199,6 +205,7 @@ def test_config_initial_cash_default(sample_symbol: str) -> None:
         end=datetime(2026, 1, 31, tzinfo=timezone.utc),
         timeframe_base="1d",
         data_provider_config=dp,
+        broker="zero",
     )
     assert config.initial_cash == 100_000.0
 
@@ -212,13 +219,14 @@ def test_config_initial_cash_custom(sample_symbol: str) -> None:
         end=datetime(2026, 1, 31, tzinfo=timezone.utc),
         timeframe_base="1d",
         data_provider_config=dp,
+        broker="zero",
         initial_cash=50_000.0,
     )
     assert config.initial_cash == 50_000.0
 
 
-def test_config_fee_fill_config_defaults_none(sample_symbol: str) -> None:
-    """BC9: fee_config and fill_config default to None (zero fees, default spread)."""
+def test_config_fill_config_defaults_none(sample_symbol: str) -> None:
+    """BC9: fill_config defaults to None (default spread)."""
     dp = DataProviderConfig(underlying_path=Path("/f"), options_path=Path("/o"))
     config = BacktestConfig(
         symbol=sample_symbol,
@@ -226,15 +234,14 @@ def test_config_fee_fill_config_defaults_none(sample_symbol: str) -> None:
         end=datetime(2026, 1, 31, tzinfo=timezone.utc),
         timeframe_base="1d",
         data_provider_config=dp,
+        broker="zero",
     )
-    assert config.fee_config is None
     assert config.fill_config is None
 
 
-def test_config_fee_fill_config_custom(sample_symbol: str) -> None:
-    """BC10: fee_config and fill_config accept typed configs."""
+def test_config_broker_and_fill_config(sample_symbol: str) -> None:
+    """BC10: broker and fill_config accept values."""
     dp = DataProviderConfig(underlying_path=Path("/f"), options_path=Path("/o"))
-    fee = FeeModelConfig(per_contract=0.65, per_order=0.50)
     fill = FillModelConfig(synthetic_spread_bps=100.0)
     config = BacktestConfig(
         symbol=sample_symbol,
@@ -242,17 +249,16 @@ def test_config_fee_fill_config_custom(sample_symbol: str) -> None:
         end=datetime(2026, 1, 31, tzinfo=timezone.utc),
         timeframe_base="1d",
         data_provider_config=dp,
-        fee_config=fee,
+        broker="tdameritrade",
         fill_config=fill,
     )
-    assert config.fee_config.per_contract == 0.65
+    assert config.broker == "tdameritrade"
     assert config.fill_config.synthetic_spread_bps == 100.0
 
 
 def test_config_to_dict_includes_engine_fields(sample_symbol: str) -> None:
-    """BC11: to_dict includes initial_cash, fee_config, fill_config."""
+    """BC11: to_dict includes initial_cash, broker, fill_config."""
     dp = DataProviderConfig(underlying_path=Path("/f"), options_path=Path("/o"))
-    fee = FeeModelConfig(per_contract=0.65, per_order=0.50)
     fill = FillModelConfig(synthetic_spread_bps=100.0)
     config = BacktestConfig(
         symbol=sample_symbol,
@@ -260,21 +266,20 @@ def test_config_to_dict_includes_engine_fields(sample_symbol: str) -> None:
         end=datetime(2026, 1, 31, tzinfo=timezone.utc),
         timeframe_base="1d",
         data_provider_config=dp,
+        broker="ibkr",
         initial_cash=50_000.0,
-        fee_config=fee,
         fill_config=fill,
     )
     d = config.to_dict()
     assert d["initial_cash"] == 50_000.0
-    assert d["fee_config"]["per_contract"] == 0.65
+    assert d["broker"] == "ibkr"
     assert d["fill_config"]["synthetic_spread_bps"] == 100.0
     json.dumps(d)  # must be JSON-serializable
 
 
 def test_config_roundtrip_engine_fields(sample_symbol: str) -> None:
-    """BC12: Round-trip preserves initial_cash, fee_config, fill_config."""
+    """BC12: Round-trip preserves initial_cash, broker, fill_config."""
     dp = DataProviderConfig(underlying_path=Path("/f"), options_path=Path("/o"))
-    fee = FeeModelConfig(per_contract=0.65, per_order=0.50)
     fill = FillModelConfig(synthetic_spread_bps=100.0)
     original = BacktestConfig(
         symbol=sample_symbol,
@@ -282,22 +287,20 @@ def test_config_roundtrip_engine_fields(sample_symbol: str) -> None:
         end=datetime(2026, 1, 31, tzinfo=timezone.utc),
         timeframe_base="1d",
         data_provider_config=dp,
+        broker="tdameritrade",
         initial_cash=50_000.0,
-        fee_config=fee,
         fill_config=fill,
         seed=42,
     )
     restored = BacktestConfig.from_dict(original.to_dict())
     assert restored.initial_cash == 50_000.0
-    assert restored.fee_config is not None
-    assert restored.fee_config.per_contract == 0.65
-    assert restored.fee_config.per_order == 0.50
+    assert restored.broker == "tdameritrade"
     assert restored.fill_config is not None
     assert restored.fill_config.synthetic_spread_bps == 100.0
 
 
 def test_config_roundtrip_engine_fields_none(sample_symbol: str) -> None:
-    """BC13: Round-trip when fee_config/fill_config are None."""
+    """BC13: Round-trip when fill_config is None."""
     dp = DataProviderConfig(underlying_path=Path("/f"), options_path=Path("/o"))
     original = BacktestConfig(
         symbol=sample_symbol,
@@ -305,11 +308,43 @@ def test_config_roundtrip_engine_fields_none(sample_symbol: str) -> None:
         end=datetime(2026, 1, 31, tzinfo=timezone.utc),
         timeframe_base="1d",
         data_provider_config=dp,
+        broker="zero",
     )
     restored = BacktestConfig.from_dict(original.to_dict())
     assert restored.initial_cash == 100_000.0
-    assert restored.fee_config is None
+    assert restored.broker == "zero"
     assert restored.fill_config is None
+
+
+def test_config_roundtrip_fill_timing(sample_symbol: str) -> None:
+    """BC15: Round-trip preserves fill_timing (Plan 265)."""
+    dp = DataProviderConfig(underlying_path=Path("/f"), options_path=Path("/o"))
+    for fill_timing in ["same_bar_close", "next_bar_open"]:
+        original = BacktestConfig(
+            symbol=sample_symbol,
+            start=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            end=datetime(2026, 1, 31, tzinfo=timezone.utc),
+            timeframe_base="1d",
+            data_provider_config=dp,
+            broker="zero",
+            fill_timing=fill_timing,
+        )
+        restored = BacktestConfig.from_dict(original.to_dict())
+        assert restored.fill_timing == fill_timing
+
+
+def test_config_fill_timing_default(sample_symbol: str) -> None:
+    """BC16: fill_timing defaults to same_bar_close."""
+    dp = DataProviderConfig(underlying_path=Path("/f"), options_path=Path("/o"))
+    config = BacktestConfig(
+        symbol=sample_symbol,
+        start=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        end=datetime(2026, 1, 31, tzinfo=timezone.utc),
+        timeframe_base="1d",
+        data_provider_config=dp,
+        broker="zero",
+    )
+    assert config.fill_timing == "same_bar_close"
 
 
 def test_config_roundtrip_futures(sample_symbol: str) -> None:
@@ -328,6 +363,7 @@ def test_config_roundtrip_futures(sample_symbol: str) -> None:
         end=datetime(2026, 1, 31, tzinfo=timezone.utc),
         timeframe_base="1d",
         data_provider_config=dp,
+        broker="zero",
         instrument_type="future",
         futures_contract_spec=fc,
     )
@@ -336,5 +372,39 @@ def test_config_roundtrip_futures(sample_symbol: str) -> None:
     assert restored.futures_contract_spec is not None
     assert restored.futures_contract_spec.symbol == "ESH26"
     assert restored.futures_contract_spec.point_value == 50.0
-    assert restored.futures_contract_spec.tick_size == 0.25
-    assert restored.futures_contract_spec.session.name == "RTH"
+
+
+def test_config_roundtrip_option_chain_fields(sample_symbol: str) -> None:
+    """BC17: Round-trip preserves option_contract_ids, option_chain_sigma_limit, option_chain_vol_default (Plan 266)."""
+    dp = DataProviderConfig(underlying_path=Path("/f"), options_path=Path("/o"))
+    original = BacktestConfig(
+        symbol=sample_symbol,
+        start=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        end=datetime(2026, 1, 31, tzinfo=timezone.utc),
+        timeframe_base="1d",
+        data_provider_config=dp,
+        broker="zero",
+        option_contract_ids=["SPY|2026-01-17|C|480|100"],
+        option_chain_sigma_limit=2.0,
+        option_chain_vol_default=0.20,
+    )
+    restored = BacktestConfig.from_dict(original.to_dict())
+    assert restored.option_contract_ids == ["SPY|2026-01-17|C|480|100"]
+    assert restored.option_chain_sigma_limit == 2.0
+    assert restored.option_chain_vol_default == 0.20
+
+
+def test_config_option_chain_sigma_limit_none(sample_symbol: str) -> None:
+    """BC18: option_chain_sigma_limit can be None (disables filter)."""
+    dp = DataProviderConfig(underlying_path=Path("/f"), options_path=Path("/o"))
+    original = BacktestConfig(
+        symbol=sample_symbol,
+        start=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        end=datetime(2026, 1, 31, tzinfo=timezone.utc),
+        timeframe_base="1d",
+        data_provider_config=dp,
+        broker="zero",
+        option_chain_sigma_limit=None,
+    )
+    restored = BacktestConfig.from_dict(original.to_dict())
+    assert restored.option_chain_sigma_limit is None

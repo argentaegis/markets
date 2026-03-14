@@ -1,3 +1,8 @@
 .DS_Store
 **/.DS_Store
 .venv/
+
+# Ignore backtest run outputs (keep runs/showcase)
+runs/*
+!runs/showcase/
+!runs/showcase/**

@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import pytest
 
 from src.broker.broker import submit_orders, validate_order
-from src.broker.fee_model import FeeModelConfig as FeeConfig
+from src.broker.fee_schedules import get_broker_schedule
 from src.broker.fill_model import FillModelConfig as FillConfig
 from src.domain.fill import Fill
 from src.domain.order import Order
@@ -41,9 +41,9 @@ def portfolio() -> PortfolioState:
     )
 
 
-@pytest.fixture
-def fee_config() -> FeeConfig:
-    return FeeConfig(per_contract=0.65, per_order=0.50)
+def _get_instrument_type_option_run(order: Order) -> str:
+    """For tests: option contract IDs have | in them."""
+    return "option" if "|" in order.instrument_id else "equity"
 
 
 @pytest.fixture
@@ -54,10 +54,9 @@ def fill_config() -> FillConfig:
 def test_submit_orders_valid_order_produces_fill(
     snapshot: MarketSnapshot,
     portfolio: PortfolioState,
-    fee_config: FeeConfig,
     fill_config: FillConfig,
 ) -> None:
-    """Valid BUY order produces fill with fees."""
+    """Valid BUY order produces fill with fees (tdameritrade schedule)."""
     order = Order(
         id="ord-1",
         ts=snapshot.ts,
@@ -66,8 +65,12 @@ def test_submit_orders_valid_order_produces_fill(
         qty=2,
         order_type="market",
     )
+    fee_schedule = get_broker_schedule("tdameritrade")
     fills = submit_orders(
-        [order], snapshot, portfolio, symbol="SPY", fee_config=fee_config, fill_config=fill_config
+        [order], snapshot, portfolio, symbol="SPY",
+        fee_schedule=fee_schedule,
+        get_instrument_type=_get_instrument_type_option_run,
+        fill_config=fill_config,
     )
     assert len(fills) == 1
     assert fills[0].order_id == order.id
@@ -79,7 +82,6 @@ def test_submit_orders_valid_order_produces_fill(
 def test_submit_orders_rejected_order_no_fill(
     snapshot: MarketSnapshot,
     portfolio: PortfolioState,
-    fee_config: FeeConfig,
     fill_config: FillConfig,
 ) -> None:
     """Rejected order (unknown instrument) produces no fill."""
@@ -91,8 +93,12 @@ def test_submit_orders_rejected_order_no_fill(
         qty=1,
         order_type="market",
     )
+    fee_schedule = get_broker_schedule("zero")
     fills = submit_orders(
-        [order], snapshot, portfolio, symbol="SPY", fee_config=fee_config, fill_config=fill_config
+        [order], snapshot, portfolio, symbol="SPY",
+        fee_schedule=fee_schedule,
+        get_instrument_type=_get_instrument_type_option_run,
+        fill_config=fill_config,
     )
     assert len(fills) == 0
 
@@ -100,7 +106,6 @@ def test_submit_orders_rejected_order_no_fill(
 def test_submit_orders_multiple_orders(
     snapshot: MarketSnapshot,
     portfolio: PortfolioState,
-    fee_config: FeeConfig,
     fill_config: FillConfig,
 ) -> None:
     """Multiple orders: valid produce fills, invalid produce none."""
@@ -122,8 +127,12 @@ def test_submit_orders_multiple_orders(
             order_type="market",
         ),
     ]
+    fee_schedule = get_broker_schedule("tdameritrade")
     fills = submit_orders(
-        orders, snapshot, portfolio, symbol="SPY", fee_config=fee_config, fill_config=fill_config
+        orders, snapshot, portfolio, symbol="SPY",
+        fee_schedule=fee_schedule,
+        get_instrument_type=_get_instrument_type_option_run,
+        fill_config=fill_config,
     )
     assert len(fills) == 2
     assert fills[0].fill_price == 5.30

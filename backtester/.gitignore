@@ -51,6 +51,5 @@ data/
 
 # Backtest output
 runs/
-!runs/
 !runs/showcase/
 !runs/showcase/**

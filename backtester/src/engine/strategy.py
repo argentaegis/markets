@@ -10,10 +10,12 @@ converts to Fills (reality). ABC enforces interface for swappable strategies.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from datetime import datetime
 
 from src.domain.order import Order
 from src.domain.portfolio import PortfolioState
 from src.domain.snapshot import MarketSnapshot
+from strategizer.protocol import OptionFetchSpec
 
 
 class Strategy(ABC):
@@ -36,6 +38,16 @@ class Strategy(ABC):
         step_index: 1-based engine step for stateless strategies.
         """
         ...
+
+    def option_fetch_spec(
+        self,
+        ts: datetime,
+        portfolio: PortfolioState,
+        underlying_close: float | None,
+        step_index: int,
+    ) -> OptionFetchSpec | None:
+        """Return what options to fetch. None = use config default."""
+        return None
 
 
 class NullStrategy(Strategy):

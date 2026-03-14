@@ -12,7 +12,6 @@ from pathlib import Path
 
 import pytest
 
-from src.broker.fee_model import FeeModelConfig
 from src.broker.fill_model import FillModelConfig
 from src.domain.config import BacktestConfig
 from src.domain.event import EventType
@@ -46,8 +45,9 @@ def _config(
     end: datetime | None = None,
     timeframe: str = "1m",
     initial_cash: float = 100_000.0,
-    fee_config: FeeModelConfig | None = None,
+    broker: str = "zero",
     fill_config: FillModelConfig | None = None,
+    fill_timing: str = "same_bar_close",
 ) -> BacktestConfig:
     """Build BacktestConfig pointing at test fixtures."""
     dp = DataProviderConfig(
@@ -64,8 +64,9 @@ def _config(
         timeframe_base=timeframe,
         data_provider_config=dp,
         initial_cash=initial_cash,
-        fee_config=fee_config,
+        broker=broker,
         fill_config=fill_config,
+        fill_timing=fill_timing,
     )
 
 
@@ -141,6 +142,33 @@ class BuySellStrategy(Strategy):
                     ts=snapshot.ts,
                     instrument_id=self._contract_id,
                     side="SELL",
+                    qty=1,
+                    order_type="market",
+                )
+            ]
+        return []
+
+
+class BuyOnLastStepStrategy(Strategy):
+    """Submits market order only on the final step. For next_bar_open: no next bar exists, so unfilled."""
+
+    def __init__(self, contract_id: str = "SPY|2026-01-17|C|480|100", last_step: int = 5) -> None:
+        self._contract_id = contract_id
+        self._last_step = last_step
+
+    def on_step(
+        self,
+        snapshot: MarketSnapshot,
+        state_view: PortfolioState,
+        step_index: int = 1,
+    ) -> list[Order]:
+        if step_index == self._last_step:
+            return [
+                Order(
+                    id="buy-last",
+                    ts=snapshot.ts,
+                    instrument_id=self._contract_id,
+                    side="BUY",
                     qty=1,
                     order_type="market",
                 )
@@ -292,16 +320,54 @@ def test_buy_sell_position_removed() -> None:
 
 
 def test_fees_reduce_cash() -> None:
-    """FeeModelConfig from BacktestConfig is applied; fees visible in fills."""
-    fee_cfg = FeeModelConfig(per_contract=0.65, per_order=0.50)
+    """Broker fee schedule (tdameritrade) is applied; fees visible in fills."""
     result = run_backtest(
-        _config(fee_config=fee_cfg),
+        _config(broker="tdameritrade"),
         BuyOnceStrategy(),
         _provider(),
     )
     assert len(result.fills) == 1
     expected_fees = 0.65 * 1 + 0.50
     assert result.fills[0].fees == pytest.approx(expected_fees)
+
+
+# ---------------------------------------------------------------------------
+# Plan 265: next_bar_open fill timing
+# ---------------------------------------------------------------------------
+
+
+def test_next_bar_open_market_order_fills_at_next_step_open() -> None:
+    """With fill_timing=next_bar_open, market order from step 1 fills at step 2 bar open."""
+    result = run_backtest(
+        _config(fill_timing="next_bar_open"),
+        BuyOnceStrategy(),
+        _provider(),
+    )
+    assert len(result.fills) == 1
+    assert len(result.orders) == 1
+    # Fill happens when we process pending at step 2; fill uses bar 2 open
+    assert result.fills[0].order_id == "buy-1"
+
+
+def test_next_bar_open_final_step_order_stays_unfilled() -> None:
+    """Order submitted on final step has no next bar; stays unfilled (no fills)."""
+    result = run_backtest(
+        _config(fill_timing="next_bar_open"),
+        BuyOnLastStepStrategy(),
+        _provider(),
+    )
+    assert len(result.fills) == 0  # No next bar to fill at
+
+
+def test_next_bar_open_same_bar_close_still_fills_immediately() -> None:
+    """fill_timing=same_bar_close (default) fills market orders same step."""
+    result = run_backtest(
+        _config(fill_timing="same_bar_close"),
+        BuyOnceStrategy(),
+        _provider(),
+    )
+    assert len(result.fills) == 1
+    assert len(result.orders) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -473,6 +539,7 @@ def test_detect_expirations_futures_skips() -> None:
         end=datetime(2026, 1, 2, 14, 35, tzinfo=timezone.utc),
         timeframe_base="1m",
         data_provider_config=dp,
+        broker="zero",
         instrument_type="future",
         futures_contract_spec=fc,
     )
@@ -504,6 +571,7 @@ def test_futures_backtest_produces_tick_aligned_fills() -> None:
         end=datetime(2026, 1, 2, 14, 35, tzinfo=timezone.utc),
         timeframe_base="1m",
         data_provider_config=dp,
+        broker="zero",
         instrument_type="future",
         futures_contract_spec=fc,
     )

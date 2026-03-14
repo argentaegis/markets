@@ -85,7 +85,7 @@ backtester-run: venv ## Run a backtest (requires BACKTESTER_CONFIG=path/to/confi
 ifndef BACKTESTER_CONFIG
 	$(error BACKTESTER_CONFIG is required, e.g. make backtester-run BACKTESTER_CONFIG=configs/orb_5m_example.yaml)
 endif
-	cd backtester && $(PYTHON) -m src.runner "$(BACKTESTER_CONFIG)" $(BACKTESTER_ARGS)
+	cd backtester && $(PYTHON) -u -m src.runner "$(BACKTESTER_CONFIG)" $(BACKTESTER_ARGS)
 
 observer-backend: venv ## Start the observer backend API server
 	cd observer/backend && PYTHONPATH=src $(PYTHON) -m uvicorn api.app:create_app --factory --port $(BACKEND_PORT)

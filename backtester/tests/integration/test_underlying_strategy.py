@@ -35,6 +35,7 @@ def _engine_config(provider_config: DataProviderConfig) -> BacktestConfig:
         end=_utc(14, 35),
         timeframe_base="1m",
         data_provider_config=provider_config,
+        broker="zero",
         initial_cash=100_000.0,
     )
 
@@ -191,6 +192,7 @@ def test_real_spy_buy_and_hold(
         end=datetime(2025, 12, 31, tzinfo=timezone.utc),
         timeframe_base="1d",
         data_provider_config=dp_config,
+        broker="zero",
         initial_cash=100_000.0,
     )
     provider = LocalFileDataProvider(dp_config)

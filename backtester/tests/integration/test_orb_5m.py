@@ -41,6 +41,7 @@ def orb_config(orb_provider_config: DataProviderConfig) -> BacktestConfig:
         end=datetime(2026, 1, 2, 16, 0, tzinfo=timezone.utc),
         timeframe_base="1m",
         data_provider_config=orb_provider_config,
+        broker="zero",
         instrument_type="future",
         futures_contract_spec=fc,
     )

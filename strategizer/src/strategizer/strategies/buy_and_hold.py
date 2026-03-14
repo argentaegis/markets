@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from strategizer.base import Strategy
-from strategizer.protocol import ContractSpecView, PortfolioView, Requirements
+from strategizer.protocol import ContractSpecView, OptionFetchSpec, PortfolioView, Requirements
 from strategizer.types import BarInput, Signal
 
 
@@ -17,14 +17,29 @@ class BuyAndHoldStrategy(Strategy):
     def requirements(self) -> Requirements:
         return Requirements(symbols=[], timeframes=[], lookback=0, needs_quotes=False)
 
+    def option_fetch_spec(
+        self,
+        ts,
+        portfolio: PortfolioView,
+        underlying_close: float | None,
+        step_index: int,
+        strategy_params: dict,
+    ) -> OptionFetchSpec | None:
+        contract_id = (strategy_params or {}).get("contract_id")
+        if contract_id:
+            return OptionFetchSpec(contract_ids=[contract_id])
+        return None
+
     def evaluate(
         self,
         ts,
         bars_by_symbol: dict[str, dict[str, list[BarInput]]],
         specs: dict[str, ContractSpecView],
         portfolio: PortfolioView,
+        *,
         step_index: int | None = None,
         strategy_params: dict | None = None,
+        option_chain: list[str] | None = None,
     ) -> list[Signal]:
         params = strategy_params or {}
         if step_index != 1:

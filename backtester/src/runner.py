@@ -19,7 +19,8 @@ from pathlib import Path
 
 import yaml
 
-from src.broker.fee_model import FeeModelConfig
+from src.broker.fee_schedules import BROKERS
+from src.broker.fill_model import FillModelConfig
 from src.domain.config import BacktestConfig
 from src.engine.engine import run_backtest
 from src.loader.provider import DataProviderConfig, LocalFileDataProvider
@@ -182,18 +183,42 @@ def _build_backtest_config(raw: dict, catalog: dict | None = None) -> BacktestCo
     start = datetime.fromisoformat(start_str) if start_str else datetime(2026, 1, 1, tzinfo=timezone.utc)
     end = datetime.fromisoformat(end_str) if end_str else datetime(2026, 1, 31, tzinfo=timezone.utc)
 
-    fee_config = None
-    fee_raw = raw.get("fee_config")
-    if fee_raw:
-        fee_config = FeeModelConfig(
-            per_contract=float(fee_raw.get("per_contract", 0.0)),
-            per_order=float(fee_raw.get("per_order", 0.0)),
+    broker = str(raw.get("broker", "")).strip()
+    if not broker:
+        raise ValueError(
+            "Config must specify 'broker'. Available: " + ", ".join(sorted(BROKERS.keys()))
         )
+    if broker not in BROKERS:
+        raise ValueError(
+            f"Unknown broker: '{broker}'. Available: {', '.join(sorted(BROKERS.keys()))}"
+        )
+
+    fill_config = None
+    fill_raw = raw.get("fill_config")
+    if fill_raw:
+        fill_config = FillModelConfig(
+            synthetic_spread_bps=float(fill_raw.get("synthetic_spread_bps", 50.0)),
+        )
+
+    fill_timing = str(raw.get("fill_timing", "same_bar_close"))
 
     fc_spec = _parse_futures_contract_spec(raw.get("futures_contract_spec"))
     instrument_type = str(raw.get("instrument_type", "option"))
 
-    strategy_name = raw.get("strategy", {}).get("name", "")
+    strategy_block = raw.get("strategy") or {}
+    strategy_name = strategy_block.get("name", "")
+
+    # option_contract_ids: explicit in config, or inferred from strategy.contract_id
+    option_contract_ids = raw.get("option_contract_ids")
+    if option_contract_ids is None:
+        contract_id = strategy_block.get("contract_id") or (strategy_block.get("params") or {}).get("contract_id")
+        if contract_id:
+            option_contract_ids = [contract_id]
+
+    option_chain_sigma_limit = raw["option_chain_sigma_limit"] if "option_chain_sigma_limit" in raw else 2.0
+    option_chain_vol_default = float(raw.get("option_chain_vol_default", 0.20))
+
+    assignment_model = str(raw.get("assignment_model", "cash"))
 
     return BacktestConfig(
         symbol=raw.get("symbol", "SPY"),
@@ -201,13 +226,19 @@ def _build_backtest_config(raw: dict, catalog: dict | None = None) -> BacktestCo
         end=end,
         timeframe_base=raw.get("timeframe_base", "1m"),
         data_provider_config=dp_config,
+        broker=broker,
         initial_cash=float(raw.get("initial_cash", 100_000.0)),
         seed=raw.get("seed"),
-        fee_config=fee_config,
+        fill_config=fill_config,
+        fill_timing=fill_timing,
         instrument_type=instrument_type,
         futures_contract_spec=fc_spec,
         strategy_name=strategy_name,
         symbols=symbols,
+        option_contract_ids=option_contract_ids,
+        option_chain_sigma_limit=option_chain_sigma_limit,
+        option_chain_vol_default=option_chain_vol_default,
+        assignment_model=assignment_model,
     )
 
 
@@ -230,6 +261,9 @@ def run_backtest_cli(
 
     on_progress = None
     if progress:
+        from src.clock.clock import count_times
+        n = count_times(config.start, config.end, config.timeframe_base)
+        print(f"Running backtest ({n} steps)...", flush=True)
 
         def _print_progress(step_index: int, total_steps: int, ts: datetime) -> None:
             pct = 100.0 * step_index / total_steps if total_steps else 0

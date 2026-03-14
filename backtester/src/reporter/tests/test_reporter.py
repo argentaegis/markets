@@ -154,12 +154,14 @@ class TestWriteSummary:
 class TestWriteRunManifest:
     def test_json_has_config_and_git_hash(self, tmp_path: Path) -> None:
         """write_run_manifest writes JSON with config, diagnostics, git_hash."""
+        from src.loader.config import DataProviderConfig
         config = BacktestConfig(
             symbol="SPY",
             start=_utc(14, 30),
             end=_utc(14, 35),
             timeframe_base="1m",
-            data_provider_config={},
+            data_provider_config=DataProviderConfig(underlying_path="", options_path=""),
+            broker="zero",
         )
         path = tmp_path / "run_manifest.json"
         write_run_manifest(path, config, run_id="SPY_1m_20260102_20260102", provider_data={"files_loaded": 3})
@@ -176,12 +178,14 @@ class TestWriteRunManifest:
 
 
 def _make_config(**overrides) -> BacktestConfig:
+    from src.loader.config import DataProviderConfig
     defaults = dict(
         symbol="SPY",
         start=_utc(14, 30),
         end=_utc(14, 35),
         timeframe_base="1m",
-        data_provider_config={},
+        data_provider_config=DataProviderConfig(underlying_path="", options_path=""),
+        broker="zero",
         initial_cash=100_000.0,
     )
     defaults.update(overrides)

@@ -36,11 +36,13 @@ def fill_order(
     symbol: str = "",
     fill_config: FillModelConfig | None = None,
     futures_spec: FuturesContractSpec | None = None,
+    use_open: bool = False,
 ) -> Fill | None:
     """Produce fill from order and snapshot. Returns None when price unavailable.
 
     Quote-based: BUY at ask, SELL at bid when bid != ask.
     Synthetic: mid +/- spread/2 when bid==ask (mid-only) or when filling underlying from bar.
+    use_open: when True, use bar.open instead of bar.close for underlying/equity (Plan 265).
     Stop orders: fill when bar high/low crosses stop level (110).
     When futures_spec provided, tick-aligns fill_price before returning (090).
     """
@@ -65,15 +67,16 @@ def fill_order(
         else:
             fill_price = None
 
-    # Underlying: use bar close as mid with synthetic spread (market/limit)
-    # Multi-symbol equity: use underlying_bars_by_symbol when present (263)
+    # Underlying: use bar open or close as mid with synthetic spread (market/limit)
+    # Plan 265: use_open=True for next-bar-open fill timing
     elif snapshot.underlying_bars_by_symbol is not None:
         bar = snapshot.underlying_bars_by_symbol.get(instrument_id)
         if bar is not None:
-            mid = bar.close
+            mid = bar.open if use_open else bar.close
             fill_price = _apply_synthetic_spread(mid, order.side, config.synthetic_spread_bps)
     elif instrument_id == symbol and snapshot.underlying_bar is not None:
-        mid = snapshot.underlying_bar.close
+        bar = snapshot.underlying_bar
+        mid = bar.open if use_open else bar.close
         fill_price = _apply_synthetic_spread(mid, order.side, config.synthetic_spread_bps)
 
     elif snapshot.option_quotes is not None:

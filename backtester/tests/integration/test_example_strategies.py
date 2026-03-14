@@ -13,7 +13,6 @@ from pathlib import Path
 
 import pytest
 
-from src.broker.fee_model import FeeModelConfig
 from src.domain.config import BacktestConfig
 from src.engine.engine import run_backtest
 from src.loader.provider import DataProviderConfig, LocalFileDataProvider
@@ -30,7 +29,8 @@ def _utc(hour: int, minute: int = 0) -> datetime:
 
 def _engine_config(
     provider_config: DataProviderConfig,
-    fee_config: FeeModelConfig | None = None,
+    *,
+    broker: str = "zero",
 ) -> BacktestConfig:
     return BacktestConfig(
         symbol="SPY",
@@ -38,8 +38,8 @@ def _engine_config(
         end=_utc(14, 35),
         timeframe_base="1m",
         data_provider_config=provider_config,
+        broker=broker,
         initial_cash=100_000.0,
-        fee_config=fee_config,
     )
 
 
@@ -80,7 +80,7 @@ def test_buy_and_hold_end_to_end(
 
 
 # ---------------------------------------------------------------------------
-# Test 2: CoveredCall end-to-end
+# Test 2: CoveredCall end-to-end (Plan 267: true covered call — hold shares, sell calls)
 # ---------------------------------------------------------------------------
 
 
@@ -89,21 +89,26 @@ def test_covered_call_end_to_end(
     provider_config: DataProviderConfig,
     report_output_dir: Path,
 ) -> None:
-    """CoveredCallStrategy: 2 fills, 1 trade, realized_pnl != 0."""
+    """CoveredCallStrategy: buy 100 SPY, sell 1 call. 2 fills, 2 open trades."""
     cfg = _engine_config(provider_config)
     provider = LocalFileDataProvider(provider_config)
-    strategy = StrategizerStrategy("covered_call", {"contract_id": CONTRACT, "exit_step": 3}, config=cfg)
+    strategy = StrategizerStrategy(
+        "covered_call",
+        {"symbol": "SPY", "shares_per_contract": 100, "contract_id": CONTRACT},
+        config=cfg,
+    )
     result = run_backtest(cfg, strategy, provider)
     run_dir = generate_report(result, report_output_dir)
 
     fill_rows = _read_csv_rows(run_dir / "fills.csv")
-    assert len(fill_rows) == 2
+    assert len(fill_rows) == 2  # buy SPY, sell call
 
     trade_rows = _read_csv_rows(run_dir / "trades.csv")
-    assert len(trade_rows) == 1
+    assert len(trade_rows) == 2  # SPY position + short call position (both open at end)
 
     summary = json.loads((run_dir / "summary.json").read_text())
-    assert summary["realized_pnl"] != 0.0
+    # realized_pnl is 0 when both legs are open (no expiry/assignment in 4-min run)
+    assert "realized_pnl" in summary
 
 
 # ---------------------------------------------------------------------------
@@ -116,11 +121,14 @@ def test_covered_call_with_fees_end_to_end(
     provider_config: DataProviderConfig,
     report_output_dir: Path,
 ) -> None:
-    """CoveredCallStrategy + FeeModelConfig: fees on both fills, total_fees > 0."""
-    fee_cfg = FeeModelConfig(per_contract=0.65, per_order=0.50)
-    cfg = _engine_config(provider_config, fee_config=fee_cfg)
+    """CoveredCallStrategy + broker tdameritrade: fees on both fills, total_fees > 0."""
+    cfg = _engine_config(provider_config, broker="tdameritrade")
     provider = LocalFileDataProvider(provider_config)
-    strategy = StrategizerStrategy("covered_call", {"contract_id": CONTRACT, "exit_step": 3}, config=cfg)
+    strategy = StrategizerStrategy(
+        "covered_call",
+        {"symbol": "SPY", "shares_per_contract": 100, "contract_id": CONTRACT},
+        config=cfg,
+    )
     result = run_backtest(cfg, strategy, provider)
     run_dir = generate_report(result, report_output_dir)
 
@@ -128,8 +136,7 @@ def test_covered_call_with_fees_end_to_end(
     assert summary["total_fees"] > 0
 
     fill_rows = _read_csv_rows(run_dir / "fills.csv")
-    for row in fill_rows:
-        assert float(row["fees"]) > 0
+    assert sum(float(r["fees"]) for r in fill_rows) > 0
 
 
 # ---------------------------------------------------------------------------
@@ -145,7 +152,11 @@ def test_report_files_human_readable(
     """CSV files have headers, JSON files are parseable."""
     cfg = _engine_config(provider_config)
     provider = LocalFileDataProvider(provider_config)
-    strategy = StrategizerStrategy("covered_call", {"contract_id": CONTRACT, "exit_step": 3}, config=cfg)
+    strategy = StrategizerStrategy(
+        "covered_call",
+        {"symbol": "SPY", "shares_per_contract": 100, "contract_id": CONTRACT},
+        config=cfg,
+    )
     result = run_backtest(cfg, strategy, provider)
     run_dir = generate_report(result, report_output_dir)
 
@@ -174,7 +185,7 @@ def test_all_invariants_across_strategies(
 
     for name, params in [
             ("buy_and_hold", {"contract_id": CONTRACT}),
-            ("covered_call", {"contract_id": CONTRACT, "exit_step": 3}),
+            ("covered_call", {"symbol": "SPY", "shares_per_contract": 100, "contract_id": CONTRACT}),
     ]:
         strategy = StrategizerStrategy(name, params, config=cfg)
         provider = LocalFileDataProvider(provider_config)
