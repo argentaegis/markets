@@ -6,24 +6,37 @@ The backtester loads local market data, runs a strategy, simulates fills through
 
 Strategizer runs **in-process** here. No HTTP service is required.
 
-## Run Backtests
+## Quick start
 
-The tracked example configs in `configs/` are fixture-backed and reproducible from the repo checkout.
-
-| Config | Strategy | Source | Description |
-|--------|----------|--------|-------------|
-| `configs/buy_and_hold_example.yaml` | `buy_and_hold` | `strategizer/` | Buy one option on the first step and hold |
-| `configs/covered_call_example.yaml` | `covered_call` | `strategizer/` | Buy an option and exit on step 5 (5yr, catalog data) |
-| `configs/covered_call_example_quick.yaml` | `covered_call` | `strategizer/` | Same, 3 months for fast iteration (~60 steps) |
-| `configs/buy_and_hold_underlying_example.yaml` | `buy_and_hold_underlying` | `strategizer/` | Buy SPY shares and hold through the run |
-| `configs/orb_5m_example.yaml` | `orb_5m` | `strategizer/` | Opening-range breakout example on ESH1 using 1m bars |
-| `configs/tactical_asset_allocation_example.yaml` | `tactical_asset_allocation` | `strategizer/` | Faber-style TAA across 6 ETFs, 2019–2026, Sharpe/CAGR in report |
-
-`orb_5m` retains its historic name, but the current implementation runs on `1m` bars.
+Run a backtest **without any data setup** (works on fresh clone):
 
 ```bash
-python -m src.runner configs/orb_5m_example.yaml
+make backtester-run BACKTESTER_CONFIG=configs/buy_and_hold_example.yaml
 ```
+
+Or from `backtester/`:
+
+```bash
+python -m src.runner configs/buy_and_hold_example.yaml
+```
+
+Artifacts appear in `runs/<timestamp>_*/`. Use `buy_and_hold_example` or `orb_5m_example` — both use fixture data bundled in the repo.
+
+## Run Backtests
+
+| Config | Strategy | Data | Description |
+|--------|----------|------|-------------|
+| `configs/buy_and_hold_example.yaml` | `buy_and_hold` | Fixture | Buy one option on the first step and hold |
+| `configs/orb_5m_example.yaml` | `orb_5m` | Fixture | Opening-range breakout on ESH1 using 1m bars |
+| `configs/buy_and_hold_underlying_example.yaml` | `buy_and_hold_underlying` | Fixture | Buy SPY shares and hold through the run |
+| `configs/trend_follow_risk_sized_example.yaml` | `trend_follow_risk_sized` | Fixture | Portfolio-aware position sizing, trailing stop |
+| `configs/covered_call_example.yaml` | `covered_call` | Catalog | True covered call, 5yr; needs `data/catalog.yaml` and exports |
+| `configs/covered_call_example_quick.yaml` | `covered_call` | Catalog | Same, 3 months for fast iteration (~60 steps) |
+| `configs/tactical_asset_allocation_example.yaml` | `tactical_asset_allocation` | Catalog | Faber-style TAA across 6 ETFs, 2019–2026; needs catalog data |
+
+**Fixture** = uses `data_provider` paths to repo fixtures; runs on fresh clone. **Catalog** = uses `data/catalog.yaml`; requires `data/exports/` for symbols (fetch via market-data CLI or provide your own).
+
+`orb_5m` retains its historic name, but the current implementation runs on `1m` bars.
 
 All runs write artifacts beneath `runs/`:
 

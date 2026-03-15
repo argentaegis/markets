@@ -46,7 +46,7 @@ make help
 make build
 make test
 make check
-make backtester-run BACKTESTER_CONFIG=configs/orb_5m_example.yaml
+make backtester-run BACKTESTER_CONFIG=configs/buy_and_hold_example.yaml
 make observer-backend
 make observer-frontend
 ```
@@ -55,17 +55,19 @@ The root `Makefile` uses a shared root `.venv` for all Python projects.
 
 ### Backtester
 
+**Quick start (no data setup):** `make backtester-run BACKTESTER_CONFIG=configs/buy_and_hold_example.yaml` — works on fresh clone.
+
 From `backtester/`:
 
 | Command | Description |
 |---------|-------------|
 | `pip install -e .` | Install the backtester package |
-| `python -m src.runner configs/buy_and_hold_example.yaml` | Option buy-and-hold example |
-| `python -m src.runner configs/covered_call_example.yaml` | Covered-call example |
-| `python -m src.runner configs/buy_and_hold_underlying_example.yaml` | Underlying buy-and-hold example |
-| `python -m src.runner configs/orb_5m_example.yaml` | Futures ORB example using 1m bars |
+| `python -m src.runner configs/buy_and_hold_example.yaml` | Option buy-and-hold (fixture-backed) |
+| `python -m src.runner configs/orb_5m_example.yaml` | Futures ORB (fixture-backed) |
+| `python -m src.runner configs/covered_call_example.yaml` | Covered-call (requires catalog data) |
+| `python -m src.runner configs/tactical_asset_allocation_example.yaml` | TAA across 6 ETFs (requires catalog data) |
 
-See `backtester/README.md` for modeling assumptions, tracked example configs, and the current showcase run.
+See `backtester/README.md` for fixture vs catalog configs, modeling assumptions, and showcase run.
 
 ### Strategizer
 
