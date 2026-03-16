@@ -84,11 +84,13 @@ Why `summary.json` shows `num_trades: 0`:
 
 ### Analytics showcase (TAA)
 
-For runs with enough data (≥20 return observations, ≥1 day), `summary.json` and the HTML report include risk-adjusted metrics:
+For runs with enough data (≥20 return observations, ≥1 day), `summary.json` and the HTML report include risk-adjusted metrics.
 
-- **Sharpe** (annualized) — `mean(step_returns) / std(step_returns) * sqrt(N)` where N is inferred from `timeframe_base`
-- **CAGR** — compound annual growth rate
-- **Turnover** — `sum(abs(fill_notional)) / mean(equity)` (capital deployment intensity)
+#### Metrics
+
+- **Sharpe** (annualized) — Mean divided by standard deviation of step returns, scaled by `sqrt(N)` where N is periods per year from `timeframe_base` (1d→252, 1m→252×390). Null if fewer than 20 observations or zero std.
+- **CAGR** — Compound annual growth rate: `(final_equity / initial_cash)^(1/years) - 1`. Null if run spans less than one day.
+- **Turnover** — `sum(|fill_notional|) / mean(equity)`; total traded notional divided by average equity over the run.
 
 The Tactical Asset Allocation run (`configs/tactical_asset_allocation_example.yaml`) over 2019–2026 demonstrates these metrics. That config uses `fill_timing: next_bar_open` and `broker: ibkr_equity_spread` (10 bps equity) for execution realism. The short ORB showcase shows `null` for Sharpe/CAGR by design (too few observations / sub-day span).
 
