@@ -1,8 +1,16 @@
 # Markets
 
-Deterministic backtesting and strategy-evaluation demo project for options and futures research.
+**Primary interview artifact:** a config-driven, deterministic backtesting engine that produces reproducible run artifacts (returns, drawdown, trades, Sharpe, CAGR, turnover). The backtester is the centerpiece of this repo.
 
-This repo is built to demonstrate clean trading-system design: typed configs, reproducible runs, shared strategy logic, shared portfolio/accounting, and artifact generation. It is **not** a production trading platform.
+This project demonstrates clean trading-system design: typed configs, reproducible runs, shared strategy logic, shared portfolio/accounting, and artifact generation. It is **not** a production trading platform.
+
+## Flagship Showcase
+
+The committed showcase in [`backtester/runs/showcase/`](backtester/runs/showcase/) includes:
+
+- **Primary run:** `tactical_asset_allocation` — Faber-style TAA across 6 ETFs, closed trades, Sharpe, CAGR, turnover, and [case study](backtester/runs/showcase/CASE_STUDY.md) describing strategy, assumptions, and metrics.
+
+Requires catalog data; run: `make backtester-run BACKTESTER_CONFIG=configs/buy_and_hold_example.yaml`
 
 ## Architecture
 
@@ -28,12 +36,12 @@ For `backtester/`: install dependencies and run a config directly. No strategize
 
 ## Projects
 
-| Dir | Purpose |
-|-----|---------|
-| `backtester/` | Deterministic backtesting engine for options and futures. Produces CSV/JSON/HTML artifacts from config-driven runs. |
-| `strategizer/` | Shared strategy package (library only). Backtester imports it in-process. Observer can use it via HTTP, but no HTTP service is included in this repo. |
-| `portfolio/` | Shared portfolio state and accounting package: fills, mark-to-market, settlement, and invariant checks. |
-| `observer/` | Live market observer app. Can use `DummyStrategy` for dev, or connect to an external strategizer HTTP service (not provided). |
+| Dir | Role |
+|-----|------|
+| `backtester/` | **Primary.** Deterministic backtesting engine for options and futures. Produces CSV/JSON/HTML artifacts from config-driven runs. |
+| `strategizer/` | **Support.** Shared strategy package (library only). Backtester imports it in-process. |
+| `portfolio/` | **Support.** Shared portfolio state and accounting: fills, mark-to-market, settlement, invariant checks. |
+| `observer/` | **Secondary.** Live market observer app. Optional; uses `DummyStrategy` or external strategizer HTTP service (not included). |
 
 ## Common Commands
 
@@ -53,21 +61,21 @@ make observer-frontend
 
 The root `Makefile` uses a shared root `.venv` for all Python projects.
 
-### Backtester
+### Backtester (primary artifact)
 
-**Quick start (no data setup):** `make backtester-run BACKTESTER_CONFIG=configs/buy_and_hold_example.yaml` — works on fresh clone.
+**Quick start (no data setup):** `make backtester-run BACKTESTER_CONFIG=configs/buy_and_hold_example.yaml` — runs on fresh clone. The flagship TAA showcase requires catalog data.
 
 From `backtester/`:
 
 | Command | Description |
 |---------|-------------|
 | `pip install -e .` | Install the backtester package |
+| `python -m src.runner configs/tactical_asset_allocation_example.yaml` | Flagship TAA (requires catalog) |
 | `python -m src.runner configs/buy_and_hold_example.yaml` | Option buy-and-hold (fixture-backed) |
-| `python -m src.runner configs/orb_5m_example.yaml` | Futures ORB (fixture-backed) |
-| `python -m src.runner configs/covered_call_example.yaml` | Covered-call (requires catalog data) |
+| `python -m src.runner configs/orb_5m_example.yaml` | Futures ORB mechanics example (fixture-backed) |
 | `python -m src.runner configs/tactical_asset_allocation_example.yaml` | TAA across 6 ETFs (requires catalog data) |
 
-See `backtester/README.md` for fixture vs catalog configs, modeling assumptions, and showcase run.
+See `backtester/README.md` for fixture vs catalog configs, modeling assumptions, and showcase runs.
 
 ### Strategizer
 
@@ -79,7 +87,7 @@ From `strategizer/`:
 
 The strategizer package is a library — it has no HTTP server or `__main__` entry point. The backtester imports it directly. The observer uses `DummyStrategy` by default; strategies with `source: strategizer` in config expect an external HTTP service (not included in this repo).
 
-### Observer
+### Observer (secondary / optional)
 
 From `observer/`:
 

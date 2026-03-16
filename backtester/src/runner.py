@@ -151,7 +151,11 @@ def _build_backtest_config(raw: dict, catalog: dict | None = None) -> BacktestCo
     if dp_raw.get("underlying_path"):
         underlying_path = dp_raw["underlying_path"]
         options_path = dp_raw.get("options_path", "")
-        extra_underlying_paths = {}
+        extra_raw = dp_raw.get("extra_underlying_paths") or {}
+        extra_underlying_paths = {
+            k: Path(v) if isinstance(v, str) else v
+            for k, v in extra_raw.items()
+        }
     else:
         if catalog is None:
             catalog = _load_catalog()

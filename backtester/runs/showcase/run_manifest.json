@@ -1,14 +1,20 @@
 {
-  "run_id": "202603112302_ESH1_1m_20260102_20260102",
+  "run_id": "202603161959_SPY_1d_20190301_20260310",
   "config": {
-    "symbol": "ESH1",
-    "start": "2026-01-02T14:31:00+00:00",
-    "end": "2026-01-02T14:37:00+00:00",
-    "timeframe_base": "1m",
+    "symbol": "SPY",
+    "start": "2019-03-01T00:00:00+00:00",
+    "end": "2026-03-10T00:00:00+00:00",
+    "timeframe_base": "1d",
     "data_provider_config": {
-      "underlying_path": "src/loader/tests/fixtures/underlying",
-      "options_path": "src/loader/tests/fixtures/options",
-      "extra_underlying_paths": {},
+      "underlying_path": "data/exports/spy",
+      "options_path": "data/exports/options/spy",
+      "extra_underlying_paths": {
+        "QQQ": "data/exports/qqq",
+        "IWM": "data/exports/iwm",
+        "TLT": "data/exports/tlt",
+        "GLD": "data/exports/gld",
+        "USO": "data/exports/uso"
+      },
       "timeframes_supported": [
         "1d",
         "1h",
@@ -20,29 +26,37 @@
       "default_multiplier": 100.0
     },
     "seed": null,
-    "initial_cash": 500000.0,
-    "fee_config": null,
+    "initial_cash": 100000.0,
+    "broker": "ibkr_equity_spread",
     "fill_config": null,
-    "instrument_type": "future",
-    "futures_contract_spec": {
-      "symbol": "ESH1",
-      "tick_size": 0.25,
-      "point_value": 50.0,
-      "session": {
-        "name": "RTH",
-        "start_time": "09:30:00",
-        "end_time": "16:00:00",
-        "timezone": "America/New_York"
-      }
-    },
-    "strategy_name": "orb_5m",
-    "symbols": []
+    "instrument_type": "equity",
+    "futures_contract_spec": null,
+    "strategy_name": "tactical_asset_allocation",
+    "symbols": [
+      "SPY",
+      "QQQ",
+      "IWM",
+      "TLT",
+      "GLD",
+      "USO"
+    ],
+    "fill_timing": "next_bar_open",
+    "option_contract_ids": null,
+    "option_chain_sigma_limit": 2.0,
+    "option_chain_vol_default": 0.2,
+    "assignment_model": "cash"
   },
   "provider_diagnostics": {
     "config": {
-      "underlying_path": "src/loader/tests/fixtures/underlying",
-      "options_path": "src/loader/tests/fixtures/options",
-      "extra_underlying_paths": {},
+      "underlying_path": "data/exports/spy",
+      "options_path": "data/exports/options/spy",
+      "extra_underlying_paths": {
+        "QQQ": "data/exports/qqq",
+        "IWM": "data/exports/iwm",
+        "TLT": "data/exports/tlt",
+        "GLD": "data/exports/gld",
+        "USO": "data/exports/uso"
+      },
       "timeframes_supported": [
         "1d",
         "1h",
@@ -55,13 +69,33 @@
     },
     "diagnostics": {
       "data_ranges": {
-        "ESH1|1m": {
-          "min_ts": "2026-01-02T14:31:00+00:00",
-          "max_ts": "2026-01-02T14:36:00+00:00"
+        "SPY|1d": {
+          "min_ts": "2018-05-01T00:00:00+00:00",
+          "max_ts": "2026-03-10T00:00:00+00:00"
+        },
+        "QQQ|1d": {
+          "min_ts": "2018-05-01T00:00:00+00:00",
+          "max_ts": "2026-03-10T00:00:00+00:00"
+        },
+        "IWM|1d": {
+          "min_ts": "2018-05-01T00:00:00+00:00",
+          "max_ts": "2026-03-10T00:00:00+00:00"
+        },
+        "TLT|1d": {
+          "min_ts": "2018-05-01T00:00:00+00:00",
+          "max_ts": "2026-03-10T00:00:00+00:00"
+        },
+        "GLD|1d": {
+          "min_ts": "2018-05-01T00:00:00+00:00",
+          "max_ts": "2026-03-10T00:00:00+00:00"
+        },
+        "USO|1d": {
+          "min_ts": "2018-05-01T00:00:00+00:00",
+          "max_ts": "2026-03-10T00:00:00+00:00"
         }
       },
       "crossed_quotes_sanitized": 0
     }
   },
-  "git_hash": "9f341a7"
+  "git_hash": "d811fde"
 }

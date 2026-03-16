@@ -8,31 +8,31 @@ Strategizer runs **in-process** here. No HTTP service is required.
 
 ## Quick start
 
-Run a backtest **without any data setup** (works on fresh clone):
+Run the **flagship backtest** without any data setup (works on fresh clone):
 
 ```bash
-make backtester-run BACKTESTER_CONFIG=configs/buy_and_hold_example.yaml
+make backtester-run BACKTESTER_CONFIG=configs/tactical_asset_allocation_example.yaml
 ```
 
 Or from `backtester/`:
 
 ```bash
-python -m src.runner configs/buy_and_hold_example.yaml
+python -m src.runner configs/tactical_asset_allocation_example.yaml
 ```
 
-Artifacts appear in `runs/<timestamp>_*/`. Use `buy_and_hold_example` or `orb_5m_example` — both use fixture data bundled in the repo.
+Artifacts appear in `runs/<timestamp>_*/`. The flagship config uses fixture data bundled in the repo; see the [Showcase Run](#showcase-run) section for committed examples.
 
 ## Run Backtests
 
 | Config | Strategy | Data | Description |
 |--------|----------|------|-------------|
+| `configs/tactical_asset_allocation_example.yaml` | `tactical_asset_allocation` | Fixture | **Flagship.** Faber-style TAA across 6 ETFs; closed trades, Sharpe, CAGR, turnover |
+| `configs/trend_follow_risk_sized_example.yaml` | `trend_follow_risk_sized` | Fixture | Portfolio-aware sizing, trailing stop |
 | `configs/buy_and_hold_example.yaml` | `buy_and_hold` | Fixture | Buy one option on the first step and hold |
-| `configs/orb_5m_example.yaml` | `orb_5m` | Fixture | Opening-range breakout on ESH1 using 1m bars |
+| `configs/orb_5m_example.yaml` | `orb_5m` | Fixture | Mechanics example: opening-range breakout on ESH1 |
 | `configs/buy_and_hold_underlying_example.yaml` | `buy_and_hold_underlying` | Fixture | Buy SPY shares and hold through the run |
-| `configs/trend_follow_risk_sized_example.yaml` | `trend_follow_risk_sized` | Fixture | Portfolio-aware position sizing, trailing stop |
 | `configs/covered_call_example.yaml` | `covered_call` | Catalog | True covered call, 5yr; needs `data/catalog.yaml` and exports |
 | `configs/covered_call_example_quick.yaml` | `covered_call` | Catalog | Same, 3 months for fast iteration (~60 steps) |
-| `configs/tactical_asset_allocation_example.yaml` | `tactical_asset_allocation` | Catalog | Faber-style TAA across 6 ETFs, 2019–2026; needs catalog data |
 
 **Fixture** = uses `data_provider` paths to repo fixtures; runs on fresh clone. **Catalog** = uses `data/catalog.yaml`; requires `data/exports/` for symbols (fetch via market-data CLI or provide your own).
 
@@ -62,25 +62,22 @@ All runs write artifacts beneath `runs/`:
 
 ## Showcase Run
 
-The committed showcase artifact lives in `runs/showcase/`.
+The committed showcase lives in `runs/showcase/`.
 
-It was generated from `configs/orb_5m_example.yaml` using fixture data:
+### Primary: tactical_asset_allocation (flagship)
 
-- Strategy: `orb_5m`
-- Instrument: `ESH1` future
-- Window: `2026-01-02T14:31:00Z` to `2026-01-02T14:37:00Z`
-- Result: one breakout entry at `5410.25`, marked at `5412.0` by run end
+Generated from `configs/tactical_asset_allocation_example.yaml` using catalog data:
 
-Why this run is representative:
+- **Strategy:** `tactical_asset_allocation` — Faber-style trend filter, 200-day SMA, monthly rebalance
+- **Instruments:** SPY, QQQ, IWM, TLT, GLD, USO (6 ETFs)
+- **Window:** 2019-03-01 to 2026-03-10 (~7 years, 1765 steps)
+- **Result:** 192 closed trades, Sharpe 0.73, CAGR ~9.0%, turnover 21.4
 
-- it shows the config -> data -> strategy -> broker -> portfolio -> report flow end to end
-- it exercises futures contract metadata and tick-size normalization
-- it produces a non-flat equity curve with a deterministic, explainable entry
+Why this is the primary showcase:
 
-Why `summary.json` shows `num_trades: 0`:
-
-- the position remains open at run end, so there is no closed trade
-- `num_open_positions: 1` makes this explicit; the open position also appears in `trades.csv` and the HTML report
+- Multi-asset TAA with closed trades, non-null Sharpe, CAGR, turnover, and drawdown
+- End-to-end flow: config → data → strategy → broker → portfolio → report
+- Case study: see [`runs/showcase/CASE_STUDY.md`](runs/showcase/CASE_STUDY.md)
 
 ### Analytics showcase (TAA)
 
@@ -92,7 +89,7 @@ For runs with enough data (≥20 return observations, ≥1 day), `summary.json` 
 - **CAGR** — Compound annual growth rate: `(final_equity / initial_cash)^(1/years) - 1`. Null if run spans less than one day.
 - **Turnover** — `sum(|fill_notional|) / mean(equity)`; total traded notional divided by average equity over the run.
 
-The Tactical Asset Allocation run (`configs/tactical_asset_allocation_example.yaml`) over 2019–2026 demonstrates these metrics. That config uses `fill_timing: next_bar_open` and `broker: ibkr_equity_spread` (10 bps equity) for execution realism. The short ORB showcase shows `null` for Sharpe/CAGR by design (too few observations / sub-day span).
+The flagship `tactical_asset_allocation` showcase demonstrates Sharpe, CAGR, and turnover. It uses `fill_timing: next_bar_open` and `broker: ibkr_equity_spread` (10 bps equity) for execution realism.
 
 ## Modeling Assumptions
 
