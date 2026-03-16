@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
       port: frontendPort,
       proxy: {
         '/api': `http://localhost:${backendPort}`,
+        '/runs': `http://localhost:${backendPort}`,
         '/ws': { target: `ws://localhost:${backendPort}`, ws: true },
       },
     },

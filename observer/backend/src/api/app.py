@@ -12,6 +12,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 _env_path = Path(__file__).resolve().parents[3] / ".env"
 load_dotenv(_env_path)
@@ -123,12 +124,20 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    from api.backtester import router as backtester_router
     from api.health import router as health_router
     from api.snapshot import router as snapshot_router
     from api.ws_handler import router as ws_router
 
+    app.include_router(backtester_router)
     app.include_router(snapshot_router)
     app.include_router(health_router)
     app.include_router(ws_router)
+
+    # Serve backtest artifacts for report links
+    _repo_root = Path(__file__).resolve().parents[4]
+    _runs_dir = _repo_root / "runs"
+    if _runs_dir.exists():
+        app.mount("/runs", StaticFiles(directory=str(_runs_dir)), name="runs")
 
     return app

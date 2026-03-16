@@ -11,7 +11,7 @@ BACKTESTER_ARGS ?=
 BACKEND_PORT ?= 8000
 FRONTEND_PORT ?= 5173
 
-.PHONY: help venv \
+.PHONY: help venv run \
 	build check test \
 	build-backtester build-strategizer build-portfolio build-observer-backend observer-frontend-build \
 	test-backtester test-strategizer test-portfolio test-observer-backend observer-frontend-lint \
@@ -35,6 +35,13 @@ test: test-backtester test-strategizer test-portfolio test-observer-backend obse
 check: build test ## Build and test all projects
 
 install: venv install-portfolio install-strategizer install-backtester install-observer observer-frontend-install ## Install all project dependencies
+
+run: venv ## Start unified app (backend + frontend). Open http://localhost:5173
+	@cd observer/backend && PYTHONPATH=src $(PYTHON) -m uvicorn api.app:create_app --factory --port $(BACKEND_PORT) & \
+	BACKEND_PID=$$!; \
+	sleep 2; \
+	$(MAKE) -C observer frontend FRONTEND_PORT=$(FRONTEND_PORT); \
+	kill $$BACKEND_PID 2>/dev/null || true
 
 build-backtester: venv ## Build the backtester package
 	$(PYTHON) -m build backtester
@@ -81,11 +88,13 @@ install-observer: venv ## Install observer backend dependencies
 observer-frontend-install: ## Install observer frontend dependencies
 	cd observer/frontend && $(NPM) install
 
+REPO_ROOT := $(abspath $(dir $(firstword $(MAKEFILE_LIST))))
+
 backtester-run: venv ## Run a backtest (requires BACKTESTER_CONFIG=path/to/config.yaml)
 ifndef BACKTESTER_CONFIG
 	$(error BACKTESTER_CONFIG is required, e.g. make backtester-run BACKTESTER_CONFIG=configs/orb_5m_example.yaml)
 endif
-	cd backtester && $(PYTHON) -u -m src.runner "$(BACKTESTER_CONFIG)" $(BACKTESTER_ARGS)
+	cd backtester && $(PYTHON) -u -m src.runner "$(BACKTESTER_CONFIG)" --output-dir "$(REPO_ROOT)" $(BACKTESTER_ARGS)
 
 observer-backend: venv ## Start the observer backend API server
 	cd observer/backend && PYTHONPATH=src $(PYTHON) -m uvicorn api.app:create_app --factory --port $(BACKEND_PORT)

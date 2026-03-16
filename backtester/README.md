@@ -8,37 +8,38 @@ Strategizer runs **in-process** here. No HTTP service is required.
 
 ## Quick start
 
-Run the **flagship backtest** without any data setup (works on fresh clone):
+**No data setup (works on fresh clone):**
 
 ```bash
-make backtester-run BACKTESTER_CONFIG=configs/tactical_asset_allocation_example.yaml
+make backtester-run BACKTESTER_CONFIG=configs/buy_and_hold_example.yaml
 ```
 
 Or from `backtester/`:
 
 ```bash
-python -m src.runner configs/tactical_asset_allocation_example.yaml
+python -m src.runner configs/buy_and_hold_example.yaml
 ```
 
-Artifacts appear in `runs/<timestamp>_*/`. The flagship config uses fixture data bundled in the repo; see the [Showcase Run](#showcase-run) section for committed examples.
+Artifacts appear in repo-root `runs/<timestamp>_*/`. The **flagship TAA** requires catalog data; see the [Showcase Run](#showcase-run) section.
 
 ## Run Backtests
 
 | Config | Strategy | Data | Description |
 |--------|----------|------|-------------|
-| `configs/tactical_asset_allocation_example.yaml` | `tactical_asset_allocation` | Fixture | **Flagship.** Faber-style TAA across 6 ETFs; closed trades, Sharpe, CAGR, turnover |
+| `configs/tactical_asset_allocation_example.yaml` | `tactical_asset_allocation` | Catalog | **Flagship.** Faber-style TAA across 6 ETFs; closed trades, Sharpe, CAGR, turnover |
 | `configs/trend_follow_risk_sized_example.yaml` | `trend_follow_risk_sized` | Fixture | Portfolio-aware sizing, trailing stop |
 | `configs/buy_and_hold_example.yaml` | `buy_and_hold` | Fixture | Buy one option on the first step and hold |
 | `configs/orb_5m_example.yaml` | `orb_5m` | Fixture | Mechanics example: opening-range breakout on ESH1 |
 | `configs/buy_and_hold_underlying_example.yaml` | `buy_and_hold_underlying` | Fixture | Buy SPY shares and hold through the run |
 | `configs/covered_call_example.yaml` | `covered_call` | Catalog | True covered call, 5yr; needs `data/catalog.yaml` and exports |
 | `configs/covered_call_example_quick.yaml` | `covered_call` | Catalog | Same, 3 months for fast iteration (~60 steps) |
+| `configs/buy_and_hold_underlying_spy_benchmark.yaml` | `buy_and_hold_underlying` | Catalog | SPY buy-and-hold benchmark for TAA case study (same window, broker) |
 
 **Fixture** = uses `data_provider` paths to repo fixtures; runs on fresh clone. **Catalog** = uses `data/catalog.yaml`; requires `data/exports/` for symbols (fetch via market-data CLI or provide your own).
 
 `orb_5m` retains its historic name, but the current implementation runs on `1m` bars.
 
-All runs write artifacts beneath `runs/`:
+All runs write artifacts beneath repo-root `runs/`:
 
 - `equity_curve.csv`
 - `orders.csv`
@@ -62,7 +63,7 @@ All runs write artifacts beneath `runs/`:
 
 ## Showcase Run
 
-The committed showcase lives in `runs/showcase/`.
+The committed showcase lives in repo-root `runs/showcase/`.
 
 ### Primary: tactical_asset_allocation (flagship)
 
@@ -77,7 +78,7 @@ Why this is the primary showcase:
 
 - Multi-asset TAA with closed trades, non-null Sharpe, CAGR, turnover, and drawdown
 - End-to-end flow: config → data → strategy → broker → portfolio → report
-- Case study: see [`runs/showcase/CASE_STUDY.md`](runs/showcase/CASE_STUDY.md)
+- Case study: see [`runs/showcase/CASE_STUDY.md`](../runs/showcase/CASE_STUDY.md)
 
 ### Analytics showcase (TAA)
 

@@ -1,0 +1,14 @@
+{
+  "strategy": "buy_and_hold_underlying",
+  "symbol": "SPY",
+  "initial_cash": 100000.0,
+  "final_equity": 237625.38,
+  "total_return_pct": 1.3763,
+  "max_drawdown_pct": 0.1972,
+  "sharpe": 0.7377,
+  "cagr": 0.131111,
+  "turnover": 0.6299,
+  "start": "2019-03-01T00:00:00+00:00",
+  "end": "2026-03-10T00:00:00+00:00",
+  "config": "configs/buy_and_hold_underlying_spy_benchmark.yaml"
+}

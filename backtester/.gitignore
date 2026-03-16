@@ -49,7 +49,5 @@ data/
 !/configs/
 !configs/*_example.yaml
 
-# Backtest output
+# Backtest output (now at repo-root runs/; showcase moved to root runs/showcase/)
 runs/
-!runs/showcase/
-!runs/showcase/**

@@ -6,11 +6,11 @@ This project demonstrates clean trading-system design: typed configs, reproducib
 
 ## Flagship Showcase
 
-The committed showcase in [`backtester/runs/showcase/`](backtester/runs/showcase/) includes:
+The committed showcase in [`runs/showcase/`](runs/showcase/) includes:
 
-- **Primary run:** `tactical_asset_allocation` — Faber-style TAA across 6 ETFs, closed trades, Sharpe, CAGR, turnover, and [case study](backtester/runs/showcase/CASE_STUDY.md) describing strategy, assumptions, and metrics.
+- **Primary run:** `tactical_asset_allocation` — Faber-style TAA across 6 ETFs, closed trades, Sharpe, CAGR, turnover, and [case study](runs/showcase/CASE_STUDY.md) describing strategy, assumptions, and metrics.
 
-Requires catalog data; run: `make backtester-run BACKTESTER_CONFIG=configs/buy_and_hold_example.yaml`
+Requires catalog data; run: `make backtester-run BACKTESTER_CONFIG=configs/tactical_asset_allocation_example.yaml`
 
 ## Architecture
 
@@ -23,7 +23,7 @@ The backtester flow is:
 - `signal`: strategies from `strategizer/`
 - `execution`: broker + fill model apply simplified fills and fees
 - `portfolio`: shared accounting in `portfolio/`
-- `report`: CSV, JSON, and HTML run artifacts in `backtester/runs/`
+- `report`: CSV, JSON, and HTML run artifacts in `runs/`
 
 ## Strategizer Modes
 
@@ -43,6 +43,16 @@ For `backtester/`: install dependencies and run a config directly. No strategize
 | `portfolio/` | **Support.** Shared portfolio state and accounting: fills, mark-to-market, settlement, invariant checks. |
 | `observer/` | **Secondary.** Live market observer app. Optional; uses `DummyStrategy` or external strategizer HTTP service (not included). |
 
+## Quick Start
+
+```bash
+make install
+make build
+make run
+```
+
+Then open http://localhost:5173 — one app with **Observer** and **Backtester** tabs.
+
 ## Common Commands
 
 The repo root now includes a `Makefile` so you can run common tasks without changing directories first.
@@ -54,10 +64,14 @@ make help
 make build
 make test
 make check
+make run
 make backtester-run BACKTESTER_CONFIG=configs/buy_and_hold_example.yaml
 make observer-backend
 make observer-frontend
 ```
+
+- **`make run`** — Start the unified app (backend + frontend). Observer and Backtester tabs in one UI.
+- **`make backtester-run`** — Run a backtest from CLI. Output goes to repo-root `runs/`.
 
 The root `Makefile` uses a shared root `.venv` for all Python projects.
 
@@ -87,7 +101,13 @@ From `strategizer/`:
 
 The strategizer package is a library — it has no HTTP server or `__main__` entry point. The backtester imports it directly. The observer uses `DummyStrategy` by default; strategies with `source: strategizer` in config expect an external HTTP service (not included in this repo).
 
-### Observer (secondary / optional)
+### Observer + Backtester (unified shell)
+
+**`make run`** starts both backend and frontend. Open http://localhost:5173 and switch between:
+- **Observer** — live market observation and trade recommendations
+- **Backtester** — select a config, run a backtest, view results
+
+### Observer (standalone)
 
 From `observer/`:
 
