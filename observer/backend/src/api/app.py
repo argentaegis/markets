@@ -22,7 +22,7 @@ from api.wiring import consume_bars, consume_quotes
 from config import load_config
 from core.portfolio import create_mock_portfolio
 from engine.engine import Engine
-from providers.base import BaseProvider
+from providers.base import BaseProvider, ProviderHealth
 from providers.sim_provider import SimProvider
 from state.market_state import MarketState
 from state.persistence import StateStore
@@ -68,8 +68,25 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app_config = load_config()
     logger.info("Loaded config: %d strategies configured", len(app_config.strategies))
 
-    provider = _create_provider()
-    await provider.connect()
+    try:
+        provider = _create_provider()
+        await provider.connect()
+    except Exception as e:
+        logger.warning("Provider connection failed. Backtester available; Observer shows Disconnected. %s", e)
+
+        class _Stub:
+            def get_contract_specs(self): return {}
+            async def connect(self): pass
+            async def disconnect(self): pass
+            async def health(self): return ProviderHealth(connected=False, source="unavailable", last_heartbeat=None, message=str(e))
+            async def subscribe_quotes(self, symbols):
+                if False: yield
+            async def subscribe_bars(self, symbols, timeframe):
+                if False: yield
+
+        provider = _Stub()
+        await provider.connect()
+
     specs = provider.get_contract_specs()
 
     registry = StrategyRegistry()

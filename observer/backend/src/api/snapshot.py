@@ -15,8 +15,6 @@ router = APIRouter()
 async def get_snapshot(request: Request) -> dict[str, Any]:
     state = request.app.state.market_state
     engine = request.app.state.engine
-
     snapshot = state.get_snapshot()
     candidates = engine.get_active_candidates()
-
     return serialize_snapshot(snapshot, candidates)

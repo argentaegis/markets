@@ -7,15 +7,18 @@ import BacktesterPane from './components/BacktesterPane/BacktesterPane.tsx'
 import { useWebSocket } from './hooks/useWebSocket.ts'
 import { useMarketData } from './hooks/useMarketData.ts'
 import { useCandidates } from './hooks/useCandidates.ts'
+import { useHealth } from './hooks/useHealth.ts'
 
 function ObserverTab() {
   const { status, reconnectCount, lastMessageAt, subscribe } = useWebSocket()
+  const providerConnected = useHealth()
   const { quotes } = useMarketData(subscribe, reconnectCount)
   const { candidates, selectedId, selectedCandidate, select } = useCandidates(subscribe, reconnectCount)
+  const displayStatus = providerConnected === false ? 'disconnected' : status
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <StatusBar status={status} lastMessageAt={lastMessageAt} />
+      <StatusBar status={displayStatus} lastMessageAt={lastMessageAt} />
       <Grid container sx={{ flex: 1, overflow: 'hidden' }}>
         <Grid size={{ xs: 12, md: 5 }} sx={{ height: '100%', overflow: 'auto', p: 1 }}>
           <MarketPane quotes={quotes} />
