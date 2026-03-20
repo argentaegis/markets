@@ -6,3 +6,7 @@
 runs/*
 !runs/showcase/
 !runs/showcase/**
+
+# Claude Code — keep project settings, ignore user-local overrides
+.claude/settings.local.json
+.claude/todos
