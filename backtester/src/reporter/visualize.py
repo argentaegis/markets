@@ -208,12 +208,14 @@ def _render_html(
     allocations: list[dict] | None = None,
 ) -> str:
     """Render the full HTML report string."""
+    initial_cash = summary.get("initial_cash", 0)
+    _scale = (100.0 / initial_cash) if initial_cash else 1.0  # normalize to % of initial capital
+
     eq_ts = json.dumps([r["ts"] for r in equity])
-    eq_values = json.dumps([float(r["equity"]) for r in equity])
+    eq_values = json.dumps([round(float(r["equity"]) * _scale, 4) for r in equity])
     dd_ts = json.dumps([r["ts"] for r in drawdown])
     dd_values = json.dumps([r["drawdown"] for r in drawdown])
 
-    initial_cash = summary.get("initial_cash", 0)
     fill_ts = json.dumps([r["ts"] for r in fills])
     order_map = order_by_id or {}
     fill_labels = []
@@ -228,11 +230,11 @@ def _render_html(
         fill_labels.append(lbl)
     fill_prices_text = json.dumps(fill_labels)
 
-    # Map fill timestamps to equity values for marker placement
-    eq_by_ts = {r["ts"]: float(r["equity"]) for r in equity}
+    # Map fill timestamps to equity values (normalized) for marker placement
+    eq_by_ts = {r["ts"]: round(float(r["equity"]) * _scale, 4) for r in equity}
     fill_eq = []
     for f in fills:
-        fill_eq.append(eq_by_ts.get(f["ts"], initial_cash))
+        fill_eq.append(eq_by_ts.get(f["ts"], 100.0))
     fill_eq_json = json.dumps(fill_eq)
 
     # Per-symbol equity overlay (multi-symbol runs only)
@@ -245,7 +247,7 @@ def _render_html(
     sym_traces_js = ""
     for i, (inst_id, ts_val) in enumerate(sym_series.items()):
         xs = sorted(ts_val.keys())
-        ys = [ts_val[t] for t in xs]
+        ys = [round(ts_val[t] * _scale, 4) for t in xs]
         color = _sym_palette[i % len(_sym_palette)]
         sym_traces_js += (
             f"\n      {{"
@@ -435,7 +437,7 @@ def _render_html(
       }},
       {{
         x: {eq_ts},
-        y: Array({len(equity)}).fill({initial_cash}),
+        y: Array({len(equity)}).fill(100),
         type: 'scatter',
         mode: 'lines',
         name: 'Initial Cash',
@@ -453,7 +455,7 @@ def _render_html(
       }}
     ], {{
       margin: {{ t: 20, b: 40, l: 70, r: 30 }},
-      yaxis: {{ title: 'Equity ($)' }},
+      yaxis: {{ title: '% of Initial Capital', ticksuffix: '%' }},
       xaxis: {{ title: '' }},
       legend: {{ x: 0, y: 1.12, orientation: 'h' }},
       paper_bgcolor: '#1e1e2f',
