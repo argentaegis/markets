@@ -89,6 +89,11 @@ For runs with enough data (≥20 return observations, ≥1 day), `summary.json` 
 - **Sharpe** (annualized) — Mean divided by standard deviation of step returns, scaled by `sqrt(N)` where N is periods per year from `timeframe_base` (1d→252, 1m→252×390). Null if fewer than 20 observations or zero std.
 - **CAGR** — Compound annual growth rate: `(final_equity / initial_cash)^(1/years) - 1`. Null if run spans less than one day.
 - **Turnover** — `sum(|fill_notional|) / mean(equity)`; total traded notional divided by average equity over the run.
+- **Avg Win / Avg Loss** — Mean realized P&L of winning trades (P&L > 0) and losing trades (P&L ≤ 0) respectively. Null if no trades in that category.
+- **Profit Factor** — `sum(winning P&L) / abs(sum(losing P&L))`; values above 1.0 indicate a net-profitable strategy. Null if no winners or no losers.
+- **Expectancy** — `win_rate × avg_win + (1 − win_rate) × avg_loss`; expected P&L per trade. Null if no closed trades.
+- **Reward / Risk** — `avg_win / abs(avg_loss)`; ratio of average winner size to average loser size. Null if no losers.
+- **Avg Trade Duration** — Mean number of bars between entry fill and exit fill across closed trades. Based on `timeframe_base`.
 
 The flagship `tactical_asset_allocation` showcase demonstrates Sharpe, CAGR, and turnover. It uses `fill_timing: next_bar_open` and `broker: ibkr_equity_spread` (10 bps equity) for execution realism.
 

@@ -226,6 +226,12 @@ def _render_html(
     def _fmt_turnover(val) -> str:
         return f"{val:.2f}" if val is not None else "—"
 
+    def _fmt_optional_dollar(val) -> str:
+        return f"${val:,.2f}" if val is not None else "—"
+
+    def _fmt_optional_float(val, decimals: int = 2) -> str:
+        return f"{val:.{decimals}f}" if val is not None else "—"
+
     sharpe = summary.get("sharpe")
     cagr = summary.get("cagr")
     turnover = summary.get("turnover")
@@ -244,6 +250,12 @@ def _render_html(
         <tr><td>Sharpe</td><td>{_fmt_sharpe(sharpe)}</td></tr>
         <tr><td>CAGR</td><td>{_fmt_cagr(cagr)}</td></tr>
         <tr><td>Turnover</td><td>{_fmt_turnover(turnover)}</td></tr>
+        <tr><td>Avg Win</td><td>{_fmt_optional_dollar(summary.get('avg_win'))}</td></tr>
+        <tr><td>Avg Loss</td><td>{_fmt_optional_dollar(summary.get('avg_loss'))}</td></tr>
+        <tr><td>Profit Factor</td><td>{_fmt_optional_float(summary.get('profit_factor'), 2)}</td></tr>
+        <tr><td>Expectancy</td><td>{_fmt_optional_dollar(summary.get('expectancy'))}</td></tr>
+        <tr><td>Reward / Risk</td><td>{_fmt_optional_float(summary.get('reward_risk_ratio'), 2)}</td></tr>
+        <tr><td>Avg Trade Duration</td><td>{_fmt_optional_float(summary.get('avg_trade_duration_bars'), 1)} bars</td></tr>
         <tr><td>Total Fees</td><td>{_fmt_dollar(summary.get('total_fees', 0))}</td></tr>
         <tr><td>Period</td><td>{summary.get('start', '')} to {summary.get('end', '')}</td></tr>
         <tr><td>Steps</td><td>{summary.get('num_steps', 0)}</td></tr>

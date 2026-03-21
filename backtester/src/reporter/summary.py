@@ -5,6 +5,8 @@ for summary.json output. All values are derivable from BacktestResult + trades;
 no hidden state. compute_summary is a pure function.
 
 Plan 264: Added sharpe (annualized), cagr, turnover, num_open_positions.
+Plan 276: Added trade-level analytics (avg_win, avg_loss, profit_factor,
+          expectancy, reward_risk_ratio, avg_trade_duration_bars).
 """
 
 from __future__ import annotations
@@ -56,6 +58,12 @@ class SummaryMetrics:
     cagr: float | None = None
     turnover: float | None = None
     sharpe_annualization: str | None = None
+    avg_win: float | None = None
+    avg_loss: float | None = None
+    profit_factor: float | None = None
+    expectancy: float | None = None
+    reward_risk_ratio: float | None = None
+    avg_trade_duration_bars: float | None = None
 
     def to_dict(self) -> dict:
         """Return JSON-serializable dict of all fields."""
@@ -93,6 +101,14 @@ class SummaryMetrics:
             d["turnover"] = None
         if self.sharpe_annualization is not None:
             d["sharpe_annualization"] = self.sharpe_annualization
+        d["avg_win"] = round(self.avg_win, 2) if self.avg_win is not None else None
+        d["avg_loss"] = round(self.avg_loss, 2) if self.avg_loss is not None else None
+        d["profit_factor"] = round(self.profit_factor, 4) if self.profit_factor is not None else None
+        d["expectancy"] = round(self.expectancy, 2) if self.expectancy is not None else None
+        d["reward_risk_ratio"] = round(self.reward_risk_ratio, 4) if self.reward_risk_ratio is not None else None
+        d["avg_trade_duration_bars"] = (
+            round(self.avg_trade_duration_bars, 2) if self.avg_trade_duration_bars is not None else None
+        )
         return d
 
 
@@ -140,6 +156,7 @@ def compute_summary(result: BacktestResult) -> SummaryMetrics:
     sharpe, sharpe_ann = _compute_sharpe(result)
     cagr = _compute_cagr(result, initial_cash, final_equity)
     turnover = _compute_turnover(result)
+    trade_analytics = _compute_trade_analytics(closed_trades, result)
 
     return SummaryMetrics(
         initial_cash=initial_cash,
@@ -162,6 +179,7 @@ def compute_summary(result: BacktestResult) -> SummaryMetrics:
         cagr=cagr,
         turnover=turnover,
         sharpe_annualization=sharpe_ann,
+        **trade_analytics,
     )
 
 
@@ -222,6 +240,75 @@ def _compute_turnover(result: BacktestResult) -> float | None:
     if mean_equity <= 0:
         return None
     return total_notional / mean_equity
+
+
+def _compute_trade_analytics(
+    closed_trades: list,
+    result: BacktestResult,
+) -> dict:
+    """Trade-level analytics: avg win/loss, profit factor, expectancy, reward-to-risk, duration.
+
+    Reasoning: these metrics let the owner discuss strategy quality in interview terms
+    (profit factor, expectancy) rather than only curve-level aggregates (Sharpe, CAGR).
+    All values are None when there are insufficient trades. Plan 276.
+    """
+    if not closed_trades:
+        return {
+            "avg_win": None,
+            "avg_loss": None,
+            "profit_factor": None,
+            "expectancy": None,
+            "reward_risk_ratio": None,
+            "avg_trade_duration_bars": None,
+        }
+
+    winners = [t for t in closed_trades if t.realized_pnl > 0]
+    losers = [t for t in closed_trades if t.realized_pnl <= 0]
+
+    avg_win = sum(t.realized_pnl for t in winners) / len(winners) if winners else None
+    avg_loss = sum(t.realized_pnl for t in losers) / len(losers) if losers else None
+
+    win_sum = sum(t.realized_pnl for t in winners)
+    loss_sum = abs(sum(t.realized_pnl for t in losers))
+    profit_factor = win_sum / loss_sum if winners and losers and loss_sum > 0 else None
+
+    reward_risk_ratio = avg_win / abs(avg_loss) if avg_win is not None and avg_loss is not None else None
+
+    win_rate = len(winners) / len(closed_trades)
+    avg_win_for_exp = avg_win if avg_win is not None else 0.0
+    avg_loss_for_exp = avg_loss if avg_loss is not None else 0.0
+    expectancy = win_rate * avg_win_for_exp + (1 - win_rate) * avg_loss_for_exp
+
+    avg_duration = _compute_avg_trade_duration_bars(closed_trades, result)
+
+    return {
+        "avg_win": avg_win,
+        "avg_loss": avg_loss,
+        "profit_factor": profit_factor,
+        "expectancy": expectancy,
+        "reward_risk_ratio": reward_risk_ratio,
+        "avg_trade_duration_bars": avg_duration,
+    }
+
+
+def _compute_avg_trade_duration_bars(closed_trades: list, result: BacktestResult) -> float | None:
+    """Mean duration in bars between entry and exit across closed trades.
+
+    Reasoning: uses entry_ts and exit_ts from Trade objects and the timeframe_base
+    to convert seconds to bars. Returns None if no trades or timeframe unknown.
+    """
+    if not closed_trades:
+        return None
+    tf = result.config.timeframe_base or "1d"
+    bar_seconds = {"1m": 60, "5m": 300, "1h": 3600, "1d": 86400}.get(tf)
+    if bar_seconds is None:
+        return None
+    durations = []
+    for t in closed_trades:
+        secs = (t.exit_ts - t.entry_ts).total_seconds()
+        if secs >= 0:
+            durations.append(secs / bar_seconds)
+    return sum(durations) / len(durations) if durations else None
 
 
 def _compute_max_drawdown(result: BacktestResult) -> tuple[float, float]:

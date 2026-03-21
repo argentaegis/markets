@@ -261,6 +261,150 @@ def test_turnover_null_when_empty_equity() -> None:
     assert sm.turnover is None
 
 
+def _make_result_with_trades(
+    winners: list[float],
+    losers: list[float],
+    *,
+    initial_cash: float = 100_000.0,
+) -> BacktestResult:
+    """Build a BacktestResult with closed round-trip trades.
+
+    winners: list of P&L values > 0 for winning trades.
+    losers: list of P&L values <= 0 for losing trades.
+    Each trade is a BUY then SELL on a distinct instrument to avoid FIFO ambiguity.
+    """
+    orders: list[Order] = []
+    fills: list[Fill] = []
+    hour = 14
+    minute = 31
+
+    def _ts(offset: int) -> datetime:
+        return _utc(14, 30 + offset)
+
+    step = 0
+    for i, pnl in enumerate(winners + losers):
+        inst = f"SPY|C|{400 + i}"
+        entry_price = 5.00
+        exit_price = entry_price + pnl  # qty=1, mult=1 for simplicity
+        oid_b = f"b{i}"
+        oid_s = f"s{i}"
+        orders.append(Order(id=oid_b, ts=_ts(step), instrument_id=inst, side="BUY", qty=1, order_type="market"))
+        fills.append(Fill(order_id=oid_b, ts=_ts(step), fill_price=entry_price, fill_qty=1))
+        step += 1
+        orders.append(Order(id=oid_s, ts=_ts(step), instrument_id=inst, side="SELL", qty=1, order_type="market"))
+        fills.append(Fill(order_id=oid_s, ts=_ts(step), fill_price=exit_price, fill_qty=1))
+        step += 1
+
+    equity_values = [initial_cash + i * 10 for i in range(step + 2)]
+    return BacktestResult(
+        config=_make_config(initial_cash=initial_cash),
+        equity_curve=[EquityPoint(ts=_ts(i), equity=eq) for i, eq in enumerate(equity_values)],
+        orders=orders,
+        fills=fills,
+        instrument_multipliers={f"SPY|C|{400 + i}": 1.0 for i in range(len(winners) + len(losers))},
+    )
+
+
+def test_trade_analytics_normal_case() -> None:
+    """avg_win, avg_loss, profit_factor, expectancy, reward_risk_ratio computed from mixed trades."""
+    result = _make_result_with_trades(winners=[100.0, 200.0], losers=[-50.0, -150.0])
+    sm = compute_summary(result)
+    assert sm.avg_win == pytest.approx(150.0)
+    assert sm.avg_loss == pytest.approx(-100.0)
+    assert sm.profit_factor == pytest.approx(300.0 / 200.0)
+    assert sm.reward_risk_ratio == pytest.approx(150.0 / 100.0)
+    win_rate = 0.5
+    assert sm.expectancy == pytest.approx(win_rate * 150.0 + (1 - win_rate) * (-100.0))
+
+
+def test_trade_analytics_all_winners() -> None:
+    """avg_loss, profit_factor, reward_risk_ratio are None when no losers."""
+    result = _make_result_with_trades(winners=[100.0, 200.0], losers=[])
+    sm = compute_summary(result)
+    assert sm.avg_win == pytest.approx(150.0)
+    assert sm.avg_loss is None
+    assert sm.profit_factor is None
+    assert sm.reward_risk_ratio is None
+    assert sm.expectancy == pytest.approx(150.0)  # win_rate=1.0
+
+
+def test_trade_analytics_all_losers() -> None:
+    """avg_win, profit_factor, reward_risk_ratio are None when no winners."""
+    result = _make_result_with_trades(winners=[], losers=[-80.0, -120.0])
+    sm = compute_summary(result)
+    assert sm.avg_win is None
+    assert sm.avg_loss == pytest.approx(-100.0)
+    assert sm.profit_factor is None
+    assert sm.reward_risk_ratio is None
+    assert sm.expectancy == pytest.approx(-100.0)  # win_rate=0.0
+
+
+def test_trade_analytics_single_trade() -> None:
+    """Single winning trade: avg_win set, avg_loss None."""
+    result = _make_result_with_trades(winners=[300.0], losers=[])
+    sm = compute_summary(result)
+    assert sm.avg_win == pytest.approx(300.0)
+    assert sm.avg_loss is None
+    assert sm.profit_factor is None
+    assert sm.expectancy == pytest.approx(300.0)
+
+
+def test_trade_analytics_no_closed_trades() -> None:
+    """All analytics are None when there are no closed trades."""
+    result = _make_result(equity_values=[100_000])
+    sm = compute_summary(result)
+    assert sm.avg_win is None
+    assert sm.avg_loss is None
+    assert sm.profit_factor is None
+    assert sm.expectancy is None
+    assert sm.reward_risk_ratio is None
+    assert sm.avg_trade_duration_bars is None
+
+
+def test_avg_trade_duration_bars() -> None:
+    """avg_trade_duration_bars is the mean bar count between entry and exit fills."""
+    # Two trades: one spans 2 steps, one spans 4 steps → avg 3.0
+    orders = [
+        Order(id="b1", ts=_utc(14, 31), instrument_id="SPY|C|480", side="BUY", qty=1, order_type="market"),
+        Order(id="s1", ts=_utc(14, 33), instrument_id="SPY|C|480", side="SELL", qty=1, order_type="market"),
+        Order(id="b2", ts=_utc(14, 34), instrument_id="SPY|C|485", side="BUY", qty=1, order_type="market"),
+        Order(id="s2", ts=_utc(14, 38), instrument_id="SPY|C|485", side="SELL", qty=1, order_type="market"),
+    ]
+    fills = [
+        Fill(order_id="b1", ts=_utc(14, 31), fill_price=5.00, fill_qty=1),
+        Fill(order_id="s1", ts=_utc(14, 33), fill_price=5.50, fill_qty=1),
+        Fill(order_id="b2", ts=_utc(14, 34), fill_price=3.00, fill_qty=1),
+        Fill(order_id="s2", ts=_utc(14, 38), fill_price=3.50, fill_qty=1),
+    ]
+    # equity_curve spans minutes 30..38 (9 points)
+    equity_values = [100_000 + i * 10 for i in range(9)]
+    result = BacktestResult(
+        config=_make_config(),
+        equity_curve=[EquityPoint(ts=_utc(14, 30 + i), equity=eq) for i, eq in enumerate(equity_values)],
+        orders=orders,
+        fills=fills,
+        instrument_multipliers={"SPY|C|480": 1.0, "SPY|C|485": 1.0},
+    )
+    sm = compute_summary(result)
+    # trade 1: entry _utc(14,31) exit _utc(14,33) → 2 min apart
+    # trade 2: entry _utc(14,34) exit _utc(14,38) → 4 min apart
+    # avg duration in seconds: (120 + 240) / 2 = 180s → 3.0 bars (1m timeframe → 60s per bar)
+    assert sm.avg_trade_duration_bars == pytest.approx(3.0)
+
+
+def test_trade_analytics_in_to_dict() -> None:
+    """New analytics fields appear in to_dict() output."""
+    result = _make_result_with_trades(winners=[100.0], losers=[-50.0])
+    sm = compute_summary(result)
+    d = sm.to_dict()
+    assert "avg_win" in d
+    assert "avg_loss" in d
+    assert "profit_factor" in d
+    assert "expectancy" in d
+    assert "reward_risk_ratio" in d
+    assert "avg_trade_duration_bars" in d
+
+
 def test_num_open_positions() -> None:
     """num_open_positions counts trades with is_open=True."""
     # One closed trade, one open (from final_marks)
