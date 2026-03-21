@@ -238,26 +238,39 @@ def _render_html(
     fill_eq_json = json.dumps(fill_eq)
 
     # Per-symbol equity overlay (multi-symbol runs only)
+    # Each symbol is indexed to 100 at its first held timestamp so returns are
+    # directly comparable to the Total line (also 100 at t=0). Timestamps where
+    # the symbol is not held get null so Plotly renders a gap rather than
+    # connecting across a sale/re-entry.
     sym_series = _pivot_allocations_by_symbol(allocations or [], equity)
     equity_label = "Total" if sym_series else "Equity"
     _sym_palette = [
         "#3498db", "#2ecc71", "#e74c3c", "#f39c12", "#9b59b6",
         "#1abc9c", "#e67e22", "#e91e63", "#00bcd4", "#8bc34a",
     ]
+    all_eq_ts = [r["ts"] for r in equity]
     sym_traces_js = ""
     for i, (inst_id, ts_val) in enumerate(sym_series.items()):
-        xs = sorted(ts_val.keys())
-        ys = [round(ts_val[t] * _scale, 4) for t in xs]
+        # Find baseline: position_value at first held timestamp
+        first_val = next((ts_val[ts] for ts in all_eq_ts if ts in ts_val and ts_val[ts] > 0), None)
+        if not first_val:
+            continue
+        # Align to all equity timestamps; null where not held
+        ys: list[float | None] = [
+            round(ts_val[ts] / first_val * 100, 4) if ts in ts_val else None
+            for ts in all_eq_ts
+        ]
         color = _sym_palette[i % len(_sym_palette)]
         sym_traces_js += (
             f"\n      {{"
-            f"\n        x: {json.dumps(xs)},"
+            f"\n        x: {json.dumps(all_eq_ts)},"
             f"\n        y: {json.dumps(ys)},"
             f"\n        type: 'scatter',"
             f"\n        mode: 'lines',"
             f"\n        name: {json.dumps(inst_id)},"
             f"\n        line: {{ color: '{color}', width: 1.5, dash: 'dot' }},"
-            f"\n        opacity: 0.5"
+            f"\n        opacity: 0.5,"
+            f"\n        connectgaps: false"
             f"\n      }},"
         )
 
@@ -455,7 +468,7 @@ def _render_html(
       }}
     ], {{
       margin: {{ t: 20, b: 40, l: 70, r: 30 }},
-      yaxis: {{ title: '% of Initial Capital', ticksuffix: '%' }},
+      yaxis: {{ title: 'Growth Index (100 = start)', ticksuffix: '' }},
       xaxis: {{ title: '' }},
       legend: {{ x: 0, y: 1.12, orientation: 'h' }},
       paper_bgcolor: '#1e1e2f',
