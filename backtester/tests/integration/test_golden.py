@@ -38,6 +38,8 @@ def _engine_config(
     *,
     broker: str = "zero",
 ) -> BacktestConfig:
+    # Pinned to same_bar_close: golden values were generated with this behavior.
+    # The golden test suite tests determinism, not fill_timing choice.
     return BacktestConfig(
         symbol="SPY",
         start=_utc(14, 31),
@@ -46,6 +48,7 @@ def _engine_config(
         data_provider_config=provider_config,
         broker=broker,
         initial_cash=100_000.0,
+        fill_timing="same_bar_close",
     )
 
 

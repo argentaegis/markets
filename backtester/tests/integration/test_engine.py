@@ -34,8 +34,14 @@ def _engine_config(
     timeframe: str = "1m",
     initial_cash: float = 100_000.0,
     broker: str = "zero",
+    fill_timing: str = "same_bar_close",
 ) -> BacktestConfig:
-    """Build BacktestConfig for engine integration tests."""
+    """Build BacktestConfig for engine integration tests.
+
+    Reasoning: pinned to same_bar_close so these tests stay deterministic
+    as new fill_timing defaults change. Tests that specifically exercise
+    next_bar_open pass fill_timing explicitly.
+    """
     return BacktestConfig(
         symbol="SPY",
         start=start or _utc(2026, 1, 2, 14, 31),
@@ -44,6 +50,7 @@ def _engine_config(
         data_provider_config=provider_config,
         broker=broker,
         initial_cash=initial_cash,
+        fill_timing=fill_timing,
     )
 
 

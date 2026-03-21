@@ -334,7 +334,7 @@ def test_config_roundtrip_fill_timing(sample_symbol: str) -> None:
 
 
 def test_config_fill_timing_default(sample_symbol: str) -> None:
-    """BC16: fill_timing defaults to same_bar_close."""
+    """BC16: fill_timing defaults to next_bar_open (Plan 278 — safe-by-default against lookahead)."""
     dp = DataProviderConfig(underlying_path=Path("/f"), options_path=Path("/o"))
     config = BacktestConfig(
         symbol=sample_symbol,
@@ -344,7 +344,7 @@ def test_config_fill_timing_default(sample_symbol: str) -> None:
         data_provider_config=dp,
         broker="zero",
     )
-    assert config.fill_timing == "same_bar_close"
+    assert config.fill_timing == "next_bar_open"
 
 
 def test_config_roundtrip_futures(sample_symbol: str) -> None:

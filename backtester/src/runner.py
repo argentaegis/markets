@@ -204,7 +204,7 @@ def _build_backtest_config(raw: dict, catalog: dict | None = None) -> BacktestCo
             synthetic_spread_bps=float(fill_raw.get("synthetic_spread_bps", 50.0)),
         )
 
-    fill_timing = str(raw.get("fill_timing", "same_bar_close"))
+    fill_timing = str(raw.get("fill_timing", "next_bar_open"))
 
     fc_spec = _parse_futures_contract_spec(raw.get("futures_contract_spec"))
     instrument_type = str(raw.get("instrument_type", "option"))

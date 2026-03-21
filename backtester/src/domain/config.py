@@ -67,7 +67,7 @@ class BacktestConfig:
     futures_contract_spec: FuturesContractSpec | None = None
     strategy_name: str = ""  # For report title and metadata (e.g. buy_and_hold_underlying)
     symbols: list[str] = field(default_factory=list)  # Multi-symbol universe; empty = single-symbol (use symbol)
-    fill_timing: str = "same_bar_close"  # "same_bar_close" (default) | "next_bar_open"
+    fill_timing: str = "next_bar_open"  # "next_bar_open" (default) | "same_bar_close"
     option_contract_ids: list[str] | None = None  # Explicit contracts; skips get_option_chain when set
     option_chain_sigma_limit: float | None = 2.0  # ±Nσ ATM filter for chain; None = no filter
     option_chain_vol_default: float = 0.20  # Annual vol for σ filter when no bar history
@@ -179,7 +179,7 @@ class BacktestConfig:
             futures_contract_spec=fc,
             strategy_name=str(d.get("strategy_name", "")),
             symbols=list(d.get("symbols", []) or []),
-            fill_timing=str(d.get("fill_timing", "same_bar_close")),
+            fill_timing=str(d.get("fill_timing", "next_bar_open")),
             option_contract_ids=d.get("option_contract_ids"),
             option_chain_sigma_limit=d["option_chain_sigma_limit"]
             if "option_chain_sigma_limit" in d

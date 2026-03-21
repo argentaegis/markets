@@ -95,7 +95,7 @@ For runs with enough data (≥20 return observations, ≥1 day), `summary.json` 
 - **Reward / Risk** — `avg_win / abs(avg_loss)`; ratio of average winner size to average loser size. Null if no losers.
 - **Avg Trade Duration** — Mean number of bars between entry fill and exit fill across closed trades. Based on `timeframe_base`.
 
-The flagship `tactical_asset_allocation` showcase demonstrates Sharpe, CAGR, and turnover. It uses `fill_timing: next_bar_open` and `broker: ibkr_equity_spread` (10 bps equity) for execution realism.
+The flagship `tactical_asset_allocation` showcase demonstrates Sharpe, CAGR, and turnover. It uses `broker: ibkr_equity_spread` (10 bps equity) and `fill_timing: next_bar_open` (the default since Plan 278) for execution realism.
 
 ## Modeling Assumptions
 
@@ -104,14 +104,14 @@ The flagship `tactical_asset_allocation` showcase demonstrates Sharpe, CAGR, and
 - Option fills use quote-aware behavior: buy at ask, sell at bid when both sides are available
 - When only a midpoint is available, the fill model applies a synthetic spread fallback
 - Futures fills are normalized to the configured tick size
-- **Fill timing**: configurable `fill_timing` — `same_bar_close` (default) or `next_bar_open` to avoid execution lookahead (Plan 265)
+- **Fill timing**: configurable `fill_timing` — `next_bar_open` (default, Plan 278) or `same_bar_close`. With `next_bar_open`, the strategy decides on bar N's close and fills at bar N+1's open, modeling realistic decision-to-execution latency. Set `fill_timing: same_bar_close` only for strategies where decision and execution are genuinely simultaneous.
 - **Broker fee schedules**: config selects a broker by name; fees differ by instrument type (equity, option, future). Built-in brokers: `ibkr`, `ibkr_equity_spread`, `tdameritrade`, `schwab`, `zero`. See `src/broker/fee_schedules.py`.
 - Portfolio state tracks cash, positions, realized P&L, unrealized P&L, equity, and invariant checks
 - Reports persist config snapshots, provider diagnostics, and a git hash for reproducibility
 
 ### Still simplified
 
-- Default fill timing remains same-bar close; `next_bar_open` is opt-in
+- Default fill timing is `next_bar_open`; `same_bar_close` is opt-in for specific use cases
 - Limit-order realism is intentionally limited
 - There are no partial fills or market-impact assumptions
 - Buying-power logic is conservative but not broker-grade margin modeling
