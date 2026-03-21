@@ -15,7 +15,7 @@
   "end": "2026-03-10T00:00:00+00:00",
   "num_steps": 1765,
   "num_open_positions": 15,
-  "elapsed_seconds": 34.54,
+  "elapsed_seconds": 34.76,
   "sharpe": 0.7258,
   "cagr": 0.089939,
   "turnover": 21.3804,
@@ -25,5 +25,7 @@
   "profit_factor": 1.9705,
   "expectancy": 327.16,
   "reward_risk_ratio": 0.8957,
-  "avg_trade_duration_bars": 241.51
+  "avg_trade_duration_bars": 241.51,
+  "net_exposure": 0.9994,
+  "gross_exposure": 0.9994
 }

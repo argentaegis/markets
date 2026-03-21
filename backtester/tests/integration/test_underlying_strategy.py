@@ -21,7 +21,7 @@ from src.loader.provider import DataProviderConfig, LocalFileDataProvider
 from src.reporter.reporter import generate_report
 from src.strategies.strategizer_adapter import StrategizerStrategy
 
-ALL_FILES = {"equity_curve.csv", "orders.csv", "fills.csv", "trades.csv", "summary.json", "run_manifest.json", "report.html"}
+ALL_FILES = {"equity_curve.csv", "allocations.csv", "orders.csv", "fills.csv", "trades.csv", "summary.json", "run_manifest.json", "report.html"}
 
 
 def _utc(hour: int, minute: int = 0) -> datetime:

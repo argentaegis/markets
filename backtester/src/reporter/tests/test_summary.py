@@ -13,7 +13,7 @@ import pytest
 from src.domain.config import BacktestConfig
 from src.domain.fill import Fill
 from src.domain.order import Order
-from src.engine.result import BacktestResult, EquityPoint
+from src.engine.result import AllocationPoint, BacktestResult, EquityPoint
 from src.reporter.summary import SummaryMetrics, compute_summary
 
 
@@ -403,6 +403,60 @@ def test_trade_analytics_in_to_dict() -> None:
     assert "expectancy" in d
     assert "reward_risk_ratio" in d
     assert "avg_trade_duration_bars" in d
+
+
+def test_exposure_null_when_no_allocation_curve() -> None:
+    """net_exposure and gross_exposure are None when allocation_curve is empty."""
+    result = _make_result(equity_values=[100_000])
+    sm = compute_summary(result)
+    assert sm.net_exposure is None
+    assert sm.gross_exposure is None
+
+
+def test_exposure_zero_when_flat_portfolio() -> None:
+    """net_exposure=0.0, gross_exposure=0.0 when positions dict is empty at last step."""
+    result = BacktestResult(
+        config=_make_config(),
+        equity_curve=[EquityPoint(ts=_utc(14, 30), equity=100_000)],
+        allocation_curve=[AllocationPoint(ts=_utc(14, 30), position_values={})],
+    )
+    sm = compute_summary(result)
+    assert sm.net_exposure == pytest.approx(0.0)
+    assert sm.gross_exposure == pytest.approx(0.0)
+
+
+def test_exposure_computed_from_last_allocation_point() -> None:
+    """net_exposure and gross_exposure use the last AllocationPoint."""
+    equity = 100_000.0
+    result = BacktestResult(
+        config=_make_config(),
+        equity_curve=[EquityPoint(ts=_utc(14, 30 + i), equity=equity) for i in range(3)],
+        allocation_curve=[
+            AllocationPoint(ts=_utc(14, 30), position_values={"SPY": 50_000.0}),
+            AllocationPoint(ts=_utc(14, 31), position_values={"SPY": 40_000.0}),
+            AllocationPoint(ts=_utc(14, 32), position_values={"SPY": 30_000.0, "QQQ": -10_000.0}),
+        ],
+    )
+    sm = compute_summary(result)
+    # Last step: SPY=30k, QQQ=-10k → net=20k, gross=40k; equity=100k
+    assert sm.net_exposure == pytest.approx(0.20)
+    assert sm.gross_exposure == pytest.approx(0.40)
+
+
+def test_exposure_in_to_dict() -> None:
+    """net_exposure and gross_exposure appear in to_dict()."""
+    equity = 100_000.0
+    result = BacktestResult(
+        config=_make_config(),
+        equity_curve=[EquityPoint(ts=_utc(14, 30), equity=equity)],
+        allocation_curve=[AllocationPoint(ts=_utc(14, 30), position_values={"SPY": 60_000.0})],
+    )
+    sm = compute_summary(result)
+    d = sm.to_dict()
+    assert "net_exposure" in d
+    assert "gross_exposure" in d
+    assert d["net_exposure"] == pytest.approx(0.6)
+    assert d["gross_exposure"] == pytest.approx(0.6)
 
 
 def test_num_open_positions() -> None:

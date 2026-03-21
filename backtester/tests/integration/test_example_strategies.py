@@ -20,7 +20,7 @@ from src.reporter.reporter import generate_report
 from src.strategies.strategizer_adapter import StrategizerStrategy
 
 CONTRACT = "SPY|2026-01-17|C|480|100"
-ALL_FILES = {"equity_curve.csv", "orders.csv", "fills.csv", "trades.csv", "summary.json", "run_manifest.json", "report.html"}
+ALL_FILES = {"equity_curve.csv", "allocations.csv", "orders.csv", "fills.csv", "trades.csv", "summary.json", "run_manifest.json", "report.html"}
 
 
 def _utc(hour: int, minute: int = 0) -> datetime:

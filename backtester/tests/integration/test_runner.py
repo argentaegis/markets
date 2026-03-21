@@ -32,7 +32,7 @@ def test_cli_produces_all_seven_files(tmp_path: Path, strategizer_required: None
     config_path = CONFIGS_DIR / "covered_call.yaml"
     run_dir = run_backtest_cli(config_path, tmp_path / "output")
 
-    expected = {"equity_curve.csv", "orders.csv", "fills.csv", "trades.csv", "summary.json", "run_manifest.json", "report.html"}
+    expected = {"equity_curve.csv", "allocations.csv", "orders.csv", "fills.csv", "trades.csv", "summary.json", "run_manifest.json", "report.html"}
     actual = {f.name for f in run_dir.iterdir()}
     assert expected == actual
 

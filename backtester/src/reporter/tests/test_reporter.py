@@ -218,6 +218,7 @@ class TestGenerateReport:
         assert run_dir.exists()
         expected_files = {
             "equity_curve.csv",
+            "allocations.csv",
             "orders.csv",
             "fills.csv",
             "trades.csv",

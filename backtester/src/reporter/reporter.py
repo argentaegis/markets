@@ -18,7 +18,7 @@ from typing import Any
 from src.domain.config import BacktestConfig
 from src.domain.fill import Fill
 from src.domain.order import Order
-from src.engine.result import BacktestResult, EquityPoint
+from src.engine.result import AllocationPoint, BacktestResult, EquityPoint
 from src.reporter.summary import SummaryMetrics, compute_summary
 from src.reporter.trades import Trade, derive_trades
 from src.reporter.visualize import generate_html_report
@@ -37,6 +37,24 @@ def _write_csv(path: Path, fieldnames: list[str], rows: list[dict]) -> None:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
+
+
+def write_allocations(path: Path, allocation_curve: list[AllocationPoint]) -> None:
+    """Write allocations.csv: long-format ts, instrument_id, position_value per step.
+
+    Reasoning: long format (one row per instrument per timestamp) is easy to
+    pivot in Python/pandas and works well for stacked area chart rendering.
+    Rows only written when position_values is non-empty.
+    """
+    rows = []
+    for ap in allocation_curve:
+        for inst_id, value in ap.position_values.items():
+            rows.append({
+                "ts": ap.ts.isoformat(),
+                "instrument_id": inst_id,
+                "position_value": value,
+            })
+    _write_csv(path, fieldnames=["ts", "instrument_id", "position_value"], rows=rows)
 
 
 def write_equity_curve(path: Path, equity_curve: list[EquityPoint]) -> None:
@@ -245,6 +263,7 @@ def generate_report(
 
     # Write all artifacts
     write_equity_curve(run_dir / "equity_curve.csv", result.equity_curve)
+    write_allocations(run_dir / "allocations.csv", result.allocation_curve)
     write_orders(run_dir / "orders.csv", result.orders)
     write_fills(run_dir / "fills.csv", result.fills)
     write_trades(run_dir / "trades.csv", trades)

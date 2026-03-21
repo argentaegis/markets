@@ -2,7 +2,8 @@
 
 Reasoning: BacktestResult collects all outputs from a single backtest run.
 Reporter (Step 7) consumes it to produce CSV/JSON artifacts. EquityPoint
-records per-timestamp equity for the equity curve.
+records per-timestamp equity for the equity curve. AllocationPoint records
+per-symbol position values for the allocation chart (Plan 277).
 """
 
 from __future__ import annotations
@@ -30,6 +31,19 @@ class EquityPoint:
 
 
 @dataclass
+class AllocationPoint:
+    """Per-timestamp position values for allocation chart (Plan 277).
+
+    Reasoning: One point per Clock tick, parallel to EquityPoint.
+    position_values maps instrument_id → market value (qty * mark * multiplier).
+    Zero-length dict when portfolio is flat.
+    """
+
+    ts: datetime
+    position_values: dict[str, float]
+
+
+@dataclass
 class BacktestResult:
     """All outputs from a backtest run.
 
@@ -40,6 +54,7 @@ class BacktestResult:
 
     config: BacktestConfig
     equity_curve: list[EquityPoint] = field(default_factory=list)
+    allocation_curve: list[AllocationPoint] = field(default_factory=list)
     orders: list[Order] = field(default_factory=list)
     fills: list[Fill] = field(default_factory=list)
     events: list[Event] = field(default_factory=list)

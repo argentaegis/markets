@@ -50,6 +50,15 @@ def _read_orders(run_dir: Path) -> list[dict]:
         return list(csv.DictReader(f))
 
 
+def _read_allocations(run_dir: Path) -> list[dict]:
+    """Read allocations.csv into list of {ts, instrument_id, position_value} dicts."""
+    path = run_dir / "allocations.csv"
+    if not path.exists():
+        return []
+    with open(path) as f:
+        return list(csv.DictReader(f))
+
+
 def _read_summary(run_dir: Path) -> dict:
     """Read summary.json into dict."""
     path = run_dir / "summary.json"
@@ -87,6 +96,78 @@ def _format_asset_type(instrument_type: str) -> str:
     return instrument_type.capitalize() if instrument_type else ""
 
 
+def _build_allocation_chart(allocations: list[dict], equity: list[dict]) -> str:
+    """Render stacked area chart HTML for multi-symbol allocation. Returns '' if <2 instruments.
+
+    Reasoning: pivots long-format allocations by instrument_id, computes weight (%)
+    relative to equity at each timestamp, renders as Plotly stacked area traces.
+    Only shown when 2+ distinct instruments appear in allocations.csv.
+    """
+    if not allocations:
+        return ""
+
+    # Collect all timestamps and instruments
+    from collections import OrderedDict
+    ts_set: list[str] = list(dict.fromkeys(r["ts"] for r in allocations))
+    instruments: list[str] = sorted({r["instrument_id"] for r in allocations})
+    if len(instruments) < 2:
+        return ""
+
+    # Build equity lookup by ts for weight computation
+    eq_by_ts = {r["ts"]: float(r["equity"]) for r in equity}
+
+    # Pivot: instrument → list of weights (one per ts in ts_set)
+    pivot: dict[str, dict[str, float]] = {inst: {} for inst in instruments}
+    for r in allocations:
+        pivot[r["instrument_id"]][r["ts"]] = float(r["position_value"])
+
+    # Color palette (10 distinct colors for up to 10 ETFs)
+    colors = [
+        "#3498db", "#2ecc71", "#e74c3c", "#f39c12", "#9b59b6",
+        "#1abc9c", "#e67e22", "#e91e63", "#00bcd4", "#8bc34a",
+    ]
+
+    traces = []
+    for i, inst in enumerate(instruments):
+        weights = []
+        for ts in ts_set:
+            eq = eq_by_ts.get(ts, 0)
+            val = pivot[inst].get(ts, 0.0)
+            weights.append(round(val / eq * 100, 4) if eq > 0 else 0.0)
+        color = colors[i % len(colors)]
+        traces.append(
+            f"""{{
+        x: {json.dumps(ts_set)},
+        y: {json.dumps(weights)},
+        type: 'scatter',
+        mode: 'lines',
+        name: '{inst}',
+        stackgroup: 'one',
+        line: {{ width: 0, color: '{color}' }},
+        fillcolor: '{color}80'
+      }}"""
+        )
+
+    traces_js = ",\n      ".join(traces)
+    return f"""
+  <h2>Allocation Over Time</h2>
+  <div id="allocation-chart"></div>
+  <script>
+    Plotly.newPlot('allocation-chart', [
+      {traces_js}
+    ], {{
+      margin: {{ t: 20, b: 40, l: 70, r: 30 }},
+      yaxis: {{ title: 'Allocation (% of equity)', ticksuffix: '%' }},
+      xaxis: {{ title: '' }},
+      legend: {{ x: 1.02, y: 1, xanchor: 'left' }},
+      paper_bgcolor: '#1e1e2f',
+      plot_bgcolor: '#1e1e2f',
+      font: {{ color: '#e0e0e0' }}
+    }}, {{ responsive: true }});
+  </script>
+"""
+
+
 def _render_html(
     summary: dict,
     equity: list[dict],
@@ -99,6 +180,7 @@ def _render_html(
     symbols: list[str] | None = None,
     instrument_type: str = "",
     order_by_id: dict[str, dict] | None = None,
+    allocations: list[dict] | None = None,
 ) -> str:
     """Render the full HTML report string."""
     eq_ts = json.dumps([r["ts"] for r in equity])
@@ -352,6 +434,7 @@ def _render_html(
   </script>
 
   {trade_chart_html}
+  {_build_allocation_chart(allocations or [], equity)}
 </body>
 </html>
 """
@@ -370,6 +453,7 @@ def generate_html_report(run_dir: Path) -> Path:
     fills = _read_fills(run_dir)
     orders = _read_orders(run_dir)
     summary = _read_summary(run_dir)
+    allocations = _read_allocations(run_dir)
     drawdown = _compute_drawdown(equity)
     manifest = _read_run_manifest(run_dir)
     config = manifest.get("config") or {}
@@ -390,6 +474,7 @@ def generate_html_report(run_dir: Path) -> Path:
         symbols=symbols,
         instrument_type=instrument_type,
         order_by_id=order_by_id,
+        allocations=allocations,
     )
     out = run_dir / "report.html"
     out.write_text(html)

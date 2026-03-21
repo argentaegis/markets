@@ -33,7 +33,7 @@ from src.portfolio.accounting import (
     settle_physical_assignment,
 )
 
-from .result import BacktestResult, EquityPoint
+from .result import AllocationPoint, BacktestResult, EquityPoint
 from .strategy import Strategy
 from strategizer.protocol import OptionFetchSpec
 
@@ -476,6 +476,12 @@ def run_backtest(
             ts, snapshot, all_orders, all_fills, expired, physically_assigned
         ))
         result.equity_curve.append(EquityPoint(ts=ts, equity=portfolio.equity))
+
+        pos_values: dict[str, float] = {
+            inst_id: pos.qty * marks.get(inst_id, pos.avg_price) * pos.multiplier
+            for inst_id, pos in portfolio.positions.items()
+        }
+        result.allocation_curve.append(AllocationPoint(ts=ts, position_values=pos_values))
 
         if on_progress:
             on_progress(step_index, total_steps, ts)

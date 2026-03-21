@@ -124,7 +124,7 @@ def _read_csv(path: Path) -> tuple[list[str], list[dict]]:
         return list(reader.fieldnames or []), rows
 
 
-ALL_FILES = {"equity_curve.csv", "orders.csv", "fills.csv", "trades.csv", "summary.json", "run_manifest.json", "report.html"}
+ALL_FILES = {"equity_curve.csv", "allocations.csv", "orders.csv", "fills.csv", "trades.csv", "summary.json", "run_manifest.json", "report.html"}
 
 
 # ---------------------------------------------------------------------------
@@ -286,7 +286,7 @@ def test_report_determinism(
     r2 = run_backtest(cfg, NullStrategy(), p2)
     dir2 = generate_report(r2, report_output_dir / "run2")
 
-    for csv_name in ["equity_curve.csv", "orders.csv", "fills.csv", "trades.csv"]:
+    for csv_name in ["equity_curve.csv", "allocations.csv", "orders.csv", "fills.csv", "trades.csv"]:
         content1 = (dir1 / csv_name).read_text()
         content2 = (dir2 / csv_name).read_text()
         assert content1 == content2, f"{csv_name} differs between runs"
@@ -299,6 +299,59 @@ def test_report_determinism(
 # ---------------------------------------------------------------------------
 # Test 7: Fees appear in fills and summary
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.integration
+def test_report_allocations_csv_exists(
+    provider_config: DataProviderConfig,
+    provider: LocalFileDataProvider,
+    report_output_dir: Path,
+) -> None:
+    """allocations.csv always written. Header-only when no positions held."""
+    cfg = _engine_config(provider_config)
+    result = run_backtest(cfg, NullStrategy(), provider)
+    run_dir = generate_report(result, report_output_dir)
+
+    alloc_path = run_dir / "allocations.csv"
+    assert alloc_path.exists()
+    fieldnames, rows = _read_csv(alloc_path)
+    # No positions held by NullStrategy → header-only
+    assert rows == []
+
+
+@pytest.mark.integration
+def test_report_allocations_csv_has_rows_when_position_held(
+    provider_config: DataProviderConfig,
+    provider: LocalFileDataProvider,
+    report_output_dir: Path,
+) -> None:
+    """allocations.csv has rows when a position is held (BuyOnceStrategy)."""
+    cfg = _engine_config(provider_config)
+    result = run_backtest(cfg, BuyOnceStrategy(), provider)
+    run_dir = generate_report(result, report_output_dir)
+
+    _, rows = _read_csv(run_dir / "allocations.csv")
+    assert len(rows) > 0
+    row = rows[0]
+    assert "ts" in row
+    assert "instrument_id" in row
+    assert "position_value" in row
+
+
+@pytest.mark.integration
+def test_report_exposure_in_summary_null_when_no_positions(
+    provider_config: DataProviderConfig,
+    provider: LocalFileDataProvider,
+    report_output_dir: Path,
+) -> None:
+    """NullStrategy: net_exposure and gross_exposure are 0.0 at run end (flat portfolio)."""
+    cfg = _engine_config(provider_config)
+    result = run_backtest(cfg, NullStrategy(), provider)
+    run_dir = generate_report(result, report_output_dir)
+
+    summary = json.loads((run_dir / "summary.json").read_text())
+    assert summary["net_exposure"] == 0.0
+    assert summary["gross_exposure"] == 0.0
 
 
 @pytest.mark.integration

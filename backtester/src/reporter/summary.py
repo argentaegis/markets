@@ -7,6 +7,7 @@ no hidden state. compute_summary is a pure function.
 Plan 264: Added sharpe (annualized), cagr, turnover, num_open_positions.
 Plan 276: Added trade-level analytics (avg_win, avg_loss, profit_factor,
           expectancy, reward_risk_ratio, avg_trade_duration_bars).
+Plan 277: Added net_exposure and gross_exposure.
 """
 
 from __future__ import annotations
@@ -64,6 +65,8 @@ class SummaryMetrics:
     expectancy: float | None = None
     reward_risk_ratio: float | None = None
     avg_trade_duration_bars: float | None = None
+    net_exposure: float | None = None
+    gross_exposure: float | None = None
 
     def to_dict(self) -> dict:
         """Return JSON-serializable dict of all fields."""
@@ -109,6 +112,8 @@ class SummaryMetrics:
         d["avg_trade_duration_bars"] = (
             round(self.avg_trade_duration_bars, 2) if self.avg_trade_duration_bars is not None else None
         )
+        d["net_exposure"] = round(self.net_exposure, 4) if self.net_exposure is not None else None
+        d["gross_exposure"] = round(self.gross_exposure, 4) if self.gross_exposure is not None else None
         return d
 
 
@@ -157,6 +162,7 @@ def compute_summary(result: BacktestResult) -> SummaryMetrics:
     cagr = _compute_cagr(result, initial_cash, final_equity)
     turnover = _compute_turnover(result)
     trade_analytics = _compute_trade_analytics(closed_trades, result)
+    net_exposure, gross_exposure = _compute_exposure(result, final_equity)
 
     return SummaryMetrics(
         initial_cash=initial_cash,
@@ -179,6 +185,8 @@ def compute_summary(result: BacktestResult) -> SummaryMetrics:
         cagr=cagr,
         turnover=turnover,
         sharpe_annualization=sharpe_ann,
+        net_exposure=net_exposure,
+        gross_exposure=gross_exposure,
         **trade_analytics,
     )
 
@@ -309,6 +317,23 @@ def _compute_avg_trade_duration_bars(closed_trades: list, result: BacktestResult
         if secs >= 0:
             durations.append(secs / bar_seconds)
     return sum(durations) / len(durations) if durations else None
+
+
+def _compute_exposure(result: BacktestResult, final_equity: float) -> tuple[float | None, float | None]:
+    """Net and gross exposure at the final step from allocation_curve.
+
+    Reasoning: net_exposure = sum(signed position values) / equity;
+    gross_exposure = sum(abs(position values)) / equity. Both at the last
+    step. Null if allocation_curve is empty or equity <= 0. Plan 277.
+    """
+    if not result.allocation_curve or final_equity <= 0:
+        return None, None
+    last = result.allocation_curve[-1]
+    if not last.position_values:
+        return 0.0, 0.0
+    net = sum(last.position_values.values()) / final_equity
+    gross = sum(abs(v) for v in last.position_values.values()) / final_equity
+    return net, gross
 
 
 def _compute_max_drawdown(result: BacktestResult) -> tuple[float, float]:
