@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from src.reporter.visualize import _compute_drawdown, _pivot_allocations_by_symbol, generate_html_report
+from src.reporter.visualize import _build_per_asset_chart, _compute_drawdown, _pivot_allocations_by_symbol, generate_html_report
 
 
 def _write_equity_curve(run_dir: Path, rows: list[dict]) -> None:
@@ -218,31 +218,40 @@ def test_pivot_multi_symbol_returns_correct_structure() -> None:
 
 
 def test_single_symbol_equity_chart_label_is_equity(tmp_path: Path) -> None:
-    """Single-symbol run: equity curve trace is named 'Equity', no per-symbol lines."""
+    """Single-symbol run: equity curve trace is named 'Equity', no per-asset chart."""
     _setup_run_dir(tmp_path)
     generate_html_report(tmp_path)
     content = (tmp_path / "report.html").read_text()
     assert "name: 'Equity'" in content
-    assert "name: 'Total'" not in content
+    assert "per-asset-returns" not in content
 
 
-def test_multi_symbol_equity_chart_label_is_total(tmp_path: Path) -> None:
-    """Multi-symbol run: combined equity trace renamed to 'Total'."""
+def test_multi_symbol_equity_chart_still_named_equity(tmp_path: Path) -> None:
+    """Multi-symbol run: main equity trace stays 'Equity' (dollars), per-asset is separate chart."""
     _setup_run_dir(tmp_path)
     _write_allocations(tmp_path, _minimal_allocations_multi())
     generate_html_report(tmp_path)
     content = (tmp_path / "report.html").read_text()
-    assert "name: 'Total'" in content
-    assert "name: 'Equity'" not in content
+    assert "name: 'Equity'" in content
 
 
-def test_multi_symbol_equity_chart_has_per_symbol_traces(tmp_path: Path) -> None:
-    """Multi-symbol run: per-symbol dashed lines with 0.5 opacity appear in chart."""
+def test_multi_symbol_per_asset_chart_rendered(tmp_path: Path) -> None:
+    """Multi-symbol run: per-asset returns chart appears with symbol traces and gaps."""
     _setup_run_dir(tmp_path)
     _write_allocations(tmp_path, _minimal_allocations_multi())
     generate_html_report(tmp_path)
     content = (tmp_path / "report.html").read_text()
+    assert "per-asset-returns" in content
+    assert "Per-Asset Returns" in content
     assert "name: 'SPY'" in content
     assert "name: 'QQQ'" in content
-    assert "dash: 'dot'" in content
-    assert "opacity: 0.5" in content
+    assert "connectgaps: false" in content
+    assert "Growth Index" in content
+
+
+def test_build_per_asset_chart_empty_for_single_symbol() -> None:
+    """_build_per_asset_chart returns '' when fewer than 2 instruments."""
+    equity = _minimal_equity()
+    allocations = [{"ts": ep["ts"], "instrument_id": "SPY", "position_value": "50000"} for ep in equity]
+    result = _build_per_asset_chart(allocations, equity)
+    assert result == ""

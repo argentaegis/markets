@@ -193,6 +193,65 @@ def _pivot_allocations_by_symbol(
     return by_sym
 
 
+def _build_per_asset_chart(allocations: list[dict], equity: list[dict]) -> str:
+    """Render per-asset return chart HTML. Returns '' if fewer than 2 instruments.
+
+    Reasoning: each symbol is indexed to 100 at its first held timestamp so
+    individual returns are visible on the same scale. Timestamps where a symbol
+    is not held produce null (connectgaps: false) so exits appear as breaks.
+    """
+    sym_series = _pivot_allocations_by_symbol(allocations, equity)
+    if not sym_series:
+        return ""
+
+    palette = [
+        "#3498db", "#2ecc71", "#e74c3c", "#f39c12", "#9b59b6",
+        "#1abc9c", "#e67e22", "#e91e63", "#00bcd4", "#8bc34a",
+    ]
+    all_ts = [r["ts"] for r in equity]
+    traces = []
+    for i, (inst_id, ts_val) in enumerate(sym_series.items()):
+        first_val = next((ts_val[ts] for ts in all_ts if ts in ts_val and ts_val[ts] > 0), None)
+        if not first_val:
+            continue
+        ys: list[float | None] = [
+            round(ts_val[ts] / first_val * 100, 4) if ts in ts_val else None
+            for ts in all_ts
+        ]
+        color = palette[i % len(palette)]
+        traces.append(
+            f"""{{
+        x: {json.dumps(all_ts)},
+        y: {json.dumps(ys)},
+        type: 'scatter',
+        mode: 'lines',
+        name: {json.dumps(inst_id)},
+        line: {{ color: '{color}', width: 1.5 }},
+        opacity: 0.7,
+        connectgaps: false
+      }}"""
+        )
+
+    traces_js = ",\n      ".join(traces)
+    return f"""
+  <h2>Per-Asset Returns</h2>
+  <div id="per-asset-returns"></div>
+  <script>
+    Plotly.newPlot('per-asset-returns', [
+      {traces_js}
+    ], {{
+      margin: {{ t: 20, b: 40, l: 70, r: 30 }},
+      yaxis: {{ title: 'Growth Index (100 = first entry)' }},
+      xaxis: {{ title: '' }},
+      legend: {{ x: 1.02, y: 1, xanchor: 'left' }},
+      paper_bgcolor: '#1e1e2f',
+      plot_bgcolor: '#1e1e2f',
+      font: {{ color: '#e0e0e0' }}
+    }}, {{ responsive: true }});
+  </script>
+"""
+
+
 def _render_html(
     summary: dict,
     equity: list[dict],
@@ -209,10 +268,9 @@ def _render_html(
 ) -> str:
     """Render the full HTML report string."""
     initial_cash = summary.get("initial_cash", 0)
-    _scale = (100.0 / initial_cash) if initial_cash else 1.0  # normalize to % of initial capital
 
     eq_ts = json.dumps([r["ts"] for r in equity])
-    eq_values = json.dumps([round(float(r["equity"]) * _scale, 4) for r in equity])
+    eq_values = json.dumps([float(r["equity"]) for r in equity])
     dd_ts = json.dumps([r["ts"] for r in drawdown])
     dd_values = json.dumps([r["drawdown"] for r in drawdown])
 
@@ -230,49 +288,12 @@ def _render_html(
         fill_labels.append(lbl)
     fill_prices_text = json.dumps(fill_labels)
 
-    # Map fill timestamps to equity values (normalized) for marker placement
-    eq_by_ts = {r["ts"]: round(float(r["equity"]) * _scale, 4) for r in equity}
+    # Map fill timestamps to equity values for marker placement
+    eq_by_ts = {r["ts"]: float(r["equity"]) for r in equity}
     fill_eq = []
     for f in fills:
-        fill_eq.append(eq_by_ts.get(f["ts"], 100.0))
+        fill_eq.append(eq_by_ts.get(f["ts"], initial_cash))
     fill_eq_json = json.dumps(fill_eq)
-
-    # Per-symbol equity overlay (multi-symbol runs only)
-    # Each symbol is indexed to 100 at its first held timestamp so returns are
-    # directly comparable to the Total line (also 100 at t=0). Timestamps where
-    # the symbol is not held get null so Plotly renders a gap rather than
-    # connecting across a sale/re-entry.
-    sym_series = _pivot_allocations_by_symbol(allocations or [], equity)
-    equity_label = "Total" if sym_series else "Equity"
-    _sym_palette = [
-        "#3498db", "#2ecc71", "#e74c3c", "#f39c12", "#9b59b6",
-        "#1abc9c", "#e67e22", "#e91e63", "#00bcd4", "#8bc34a",
-    ]
-    all_eq_ts = [r["ts"] for r in equity]
-    sym_traces_js = ""
-    for i, (inst_id, ts_val) in enumerate(sym_series.items()):
-        # Find baseline: position_value at first held timestamp
-        first_val = next((ts_val[ts] for ts in all_eq_ts if ts in ts_val and ts_val[ts] > 0), None)
-        if not first_val:
-            continue
-        # Align to all equity timestamps; null where not held
-        ys: list[float | None] = [
-            round(ts_val[ts] / first_val * 100, 4) if ts in ts_val else None
-            for ts in all_eq_ts
-        ]
-        color = _sym_palette[i % len(_sym_palette)]
-        sym_traces_js += (
-            f"\n      {{"
-            f"\n        x: {json.dumps(all_eq_ts)},"
-            f"\n        y: {json.dumps(ys)},"
-            f"\n        type: 'scatter',"
-            f"\n        mode: 'lines',"
-            f"\n        name: {json.dumps(inst_id)},"
-            f"\n        line: {{ color: '{color}', width: 1.5, dash: 'dot' }},"
-            f"\n        opacity: 0.5,"
-            f"\n        connectgaps: false"
-            f"\n      }},"
-        )
 
     # Trade P&L chart (only if trades exist)
     trade_chart_html = ""
@@ -445,17 +466,17 @@ def _render_html(
         y: {eq_values},
         type: 'scatter',
         mode: 'lines',
-        name: '{equity_label}',
+        name: 'Equity',
         line: {{ color: '#3498db', width: 2 }}
       }},
       {{
         x: {eq_ts},
-        y: Array({len(equity)}).fill(100),
+        y: Array({len(equity)}).fill({initial_cash}),
         type: 'scatter',
         mode: 'lines',
         name: 'Initial Cash',
         line: {{ color: '#555', width: 1, dash: 'dot' }}
-      }},{sym_traces_js}
+      }},
       {{
         x: {fill_ts},
         y: {fill_eq_json},
@@ -468,7 +489,7 @@ def _render_html(
       }}
     ], {{
       margin: {{ t: 20, b: 40, l: 70, r: 30 }},
-      yaxis: {{ title: 'Growth Index (100 = start)', ticksuffix: '' }},
+      yaxis: {{ title: 'Equity ($)' }},
       xaxis: {{ title: '' }},
       legend: {{ x: 0, y: 1.12, orientation: 'h' }},
       paper_bgcolor: '#1e1e2f',
@@ -476,6 +497,8 @@ def _render_html(
       font: {{ color: '#e0e0e0' }}
     }}, {{ responsive: true }});
   </script>
+
+  {_build_per_asset_chart(allocations or [], equity)}
 
   <h2>Drawdown</h2>
   <div id="drawdown"></div>

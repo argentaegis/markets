@@ -8,5 +8,8 @@
       "Bash(curl:*)"
     ]
   },
-  "plansDirectory": "plans"
+  "plansDirectory": "plans",
+  "attribution": {
+    "commit": ""
+  }
 }
