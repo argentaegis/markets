@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from src.reporter.visualize import _compute_drawdown, generate_html_report
+from src.reporter.visualize import _compute_drawdown, _pivot_allocations_by_symbol, generate_html_report
 
 
 def _write_equity_curve(run_dir: Path, rows: list[dict]) -> None:
@@ -167,3 +167,82 @@ def test_report_title_and_metadata_from_manifest(tmp_path: Path) -> None:
     assert "<td>Strategy</td><td>buy_and_hold_underlying</td>" in content
     assert "<td>Symbol</td><td>SPY</td>" in content
     assert "<td>Asset Type</td><td>Equity</td>" in content
+
+
+# ---------------------------------------------------------------------------
+# Per-symbol equity overlay tests
+# ---------------------------------------------------------------------------
+
+
+def _write_allocations(run_dir: Path, rows: list[dict]) -> None:
+    path = run_dir / "allocations.csv"
+    with open(path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["ts", "instrument_id", "position_value"])
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _minimal_allocations_multi() -> list[dict]:
+    """Two-symbol allocation rows aligned with _minimal_equity() timestamps."""
+    eq = _minimal_equity()
+    rows = []
+    for i, ep in enumerate(eq):
+        rows.append({"ts": ep["ts"], "instrument_id": "SPY", "position_value": 50000.0 + i * 10})
+        rows.append({"ts": ep["ts"], "instrument_id": "QQQ", "position_value": 40000.0 - i * 5})
+    return rows
+
+
+def test_pivot_returns_empty_for_single_symbol() -> None:
+    """_pivot_allocations_by_symbol returns {} when only one instrument present."""
+    equity = _minimal_equity()
+    allocations = [{"ts": ep["ts"], "instrument_id": "SPY", "position_value": "50000"} for ep in equity]
+    result = _pivot_allocations_by_symbol(allocations, equity)
+    assert result == {}
+
+
+def test_pivot_returns_empty_for_no_allocations() -> None:
+    """_pivot_allocations_by_symbol returns {} when allocations list is empty."""
+    result = _pivot_allocations_by_symbol([], _minimal_equity())
+    assert result == {}
+
+
+def test_pivot_multi_symbol_returns_correct_structure() -> None:
+    """_pivot_allocations_by_symbol returns {inst_id: {ts: value}} for 2+ instruments."""
+    equity = _minimal_equity()
+    allocations = _minimal_allocations_multi()
+    result = _pivot_allocations_by_symbol(allocations, equity)
+    assert set(result.keys()) == {"SPY", "QQQ"}
+    assert len(result["SPY"]) == len(equity)
+    assert result["SPY"][equity[0]["ts"]] == pytest.approx(50000.0)
+    assert result["QQQ"][equity[0]["ts"]] == pytest.approx(40000.0)
+
+
+def test_single_symbol_equity_chart_label_is_equity(tmp_path: Path) -> None:
+    """Single-symbol run: equity curve trace is named 'Equity', no per-symbol lines."""
+    _setup_run_dir(tmp_path)
+    generate_html_report(tmp_path)
+    content = (tmp_path / "report.html").read_text()
+    assert "name: 'Equity'" in content
+    assert "name: 'Total'" not in content
+
+
+def test_multi_symbol_equity_chart_label_is_total(tmp_path: Path) -> None:
+    """Multi-symbol run: combined equity trace renamed to 'Total'."""
+    _setup_run_dir(tmp_path)
+    _write_allocations(tmp_path, _minimal_allocations_multi())
+    generate_html_report(tmp_path)
+    content = (tmp_path / "report.html").read_text()
+    assert "name: 'Total'" in content
+    assert "name: 'Equity'" not in content
+
+
+def test_multi_symbol_equity_chart_has_per_symbol_traces(tmp_path: Path) -> None:
+    """Multi-symbol run: per-symbol dashed lines with 0.5 opacity appear in chart."""
+    _setup_run_dir(tmp_path)
+    _write_allocations(tmp_path, _minimal_allocations_multi())
+    generate_html_report(tmp_path)
+    content = (tmp_path / "report.html").read_text()
+    assert "name: 'SPY'" in content
+    assert "name: 'QQQ'" in content
+    assert "dash: 'dot'" in content
+    assert "opacity: 0.5" in content

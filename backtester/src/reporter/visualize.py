@@ -168,6 +168,31 @@ def _build_allocation_chart(allocations: list[dict], equity: list[dict]) -> str:
 """
 
 
+def _pivot_allocations_by_symbol(
+    allocations: list[dict],
+    equity: list[dict],
+) -> dict[str, dict[str, float]]:
+    """Return {instrument_id: {ts_iso: position_value}} for per-symbol equity chart lines.
+
+    Reasoning: pivots long-format allocations (same data as allocation chart)
+    into a per-instrument series keyed by timestamp, so the equity chart can
+    overlay individual position-value lines alongside the combined total.
+    Returns empty dict when fewer than 2 distinct instruments are present
+    (single-symbol runs need no overlay).
+    """
+    if not allocations:
+        return {}
+    instruments: list[str] = sorted({r["instrument_id"] for r in allocations})
+    if len(instruments) < 2:
+        return {}
+    ts_set = {r["ts"] for r in equity}
+    by_sym: dict[str, dict[str, float]] = {inst: {} for inst in instruments}
+    for r in allocations:
+        if r["ts"] in ts_set:
+            by_sym[r["instrument_id"]][r["ts"]] = float(r["position_value"])
+    return by_sym
+
+
 def _render_html(
     summary: dict,
     equity: list[dict],
@@ -209,6 +234,30 @@ def _render_html(
     for f in fills:
         fill_eq.append(eq_by_ts.get(f["ts"], initial_cash))
     fill_eq_json = json.dumps(fill_eq)
+
+    # Per-symbol equity overlay (multi-symbol runs only)
+    sym_series = _pivot_allocations_by_symbol(allocations or [], equity)
+    equity_label = "Total" if sym_series else "Equity"
+    _sym_palette = [
+        "#3498db", "#2ecc71", "#e74c3c", "#f39c12", "#9b59b6",
+        "#1abc9c", "#e67e22", "#e91e63", "#00bcd4", "#8bc34a",
+    ]
+    sym_traces_js = ""
+    for i, (inst_id, ts_val) in enumerate(sym_series.items()):
+        xs = sorted(ts_val.keys())
+        ys = [ts_val[t] for t in xs]
+        color = _sym_palette[i % len(_sym_palette)]
+        sym_traces_js += (
+            f"\n      {{"
+            f"\n        x: {json.dumps(xs)},"
+            f"\n        y: {json.dumps(ys)},"
+            f"\n        type: 'scatter',"
+            f"\n        mode: 'lines',"
+            f"\n        name: {json.dumps(inst_id)},"
+            f"\n        line: {{ color: '{color}', width: 1.5, dash: 'dot' }},"
+            f"\n        opacity: 0.5"
+            f"\n      }},"
+        )
 
     # Trade P&L chart (only if trades exist)
     trade_chart_html = ""
@@ -381,7 +430,7 @@ def _render_html(
         y: {eq_values},
         type: 'scatter',
         mode: 'lines',
-        name: 'Equity',
+        name: '{equity_label}',
         line: {{ color: '#3498db', width: 2 }}
       }},
       {{
@@ -391,7 +440,7 @@ def _render_html(
         mode: 'lines',
         name: 'Initial Cash',
         line: {{ color: '#555', width: 1, dash: 'dot' }}
-      }},
+      }},{sym_traces_js}
       {{
         x: {fill_ts},
         y: {fill_eq_json},
